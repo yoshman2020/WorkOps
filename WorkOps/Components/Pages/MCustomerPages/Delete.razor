@@ -1,0 +1,79 @@
+﻿@page "/mcustomers/delete"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@using WorkOps.Models.Errors
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject NavigationManager NavigationManager
+
+<PageTitle>削除</PageTitle>
+
+<h1>削除</h1>
+
+<p>削除します。よろしいですか？</p>
+<div>
+    <h2>顧客</h2>
+    <hr />
+    @if (mcustomer is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <ErrorAlert ErrorCode="@ErrorCode" Args="@Args" />
+        <dl class="row">
+            <dt class="col-sm-2">顧客名</dt>
+            <dd class="col-sm-10">@mcustomer.Name</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">備考</dt>
+            <dd class="col-sm-10">@mcustomer.Remarks</dd>
+        </dl>
+        <EditForm method="post" Model="mcustomer" OnValidSubmit="DeleteMCustomer" FormName="delete" Enhance>
+            <button type="submit" class="btn btn-danger" disabled="@(mcustomer is null)">削除</button> |
+            <a href="/mcustomers">一覧に戻る</a>
+        </EditForm>
+    }
+</div>
+
+@code {
+    private InputModel? mcustomer;
+
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    /// <summary>
+    /// エラーコード
+    /// </summary>
+    private ErrorCode? ErrorCode { get; set; }
+
+    /// <summary>
+    /// エラーメッセージ引数
+    /// </summary>
+    private object[]? Args { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        (mcustomer, _) = await InputModelService
+            .GetInputModelAsync<InputModel, MCustomer>(Id);
+
+        if (mcustomer is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+    }
+
+    private async Task DeleteMCustomer()
+    {
+        var errorCode = await InputModelService
+            .DeleteInputModelAsync<MCustomer, MProject>(Id);
+
+        if (errorCode == WorkOps.Models.Errors.ErrorCode.None)
+        {
+            NavigationManager.NavigateTo("/mcustomers");
+            return;
+        }
+
+        Args = ["プロジェクト"];
+        ErrorCode = errorCode;
+    }
+}

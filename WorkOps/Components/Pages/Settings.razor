@@ -1,0 +1,31 @@
+﻿@page "/settings"
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>各種設定</PageTitle>
+
+<div class="settings">
+    <a href="/mcustomers" class="settings-link bi-shop-settings">顧客管理</a>
+    <a href="/mprojects" class="settings-link bi-diagram-3-settings">プロジェクト管理</a>
+    <a href="/mphases" class="settings-link bi-list-ol-settings">工程管理</a>
+    <a href="/mholidays" class="settings-link bi-flag-settings">休日・祝祭日</a>
+    <a href="/mworktimes" class="settings-link bi-clock-settings">勤務時間</a>
+    @if (IsAdmin)
+    {
+        <a href="/applicationusers" class="settings-link bi-people-fill-settings">ユーザー管理</a>
+    }
+</div>
+
+@code {
+    private bool IsAdmin = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // ユーザーの認証状態を取得
+        var authState = await AuthenticationStateProvider
+            .GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        // ユーザーが Admin または Manager のロールに属しているか確認
+        IsAdmin = user.IsInRole("Admin") || user.IsInRole("Manager");
+    }
+}

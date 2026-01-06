@@ -1,0 +1,77 @@
+﻿@page "/tattendances/details"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject WorkOps.Services.UserService UserService
+@inject NavigationManager NavigationManager
+
+<PageTitle>詳細</PageTitle>
+
+<h1>詳細</h1>
+
+<div>
+    <h2>出退勤</h2>
+    <hr />
+    @if (tattendance is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <dl class="row">
+            <dt class="col-sm-2">担当者</dt>
+            <dd class="col-sm-10">@tattendance.UserName</dd>
+            <dt class="col-sm-2">日付</dt>
+            <dd class="col-sm-10">@tattendance.Date</dd>
+            <dt class="col-sm-2">開始時間</dt>
+            <dd class="col-sm-10">@tattendance.StartTime?.ToString("HH:mm")</dd>
+            <dt class="col-sm-2">終了時間</dt>
+            <dd class="col-sm-10">@tattendance.EndTime?.ToString("HH:mm")</dd>
+            <dt class="col-sm-2">有給時間</dt>
+            <dd class="col-sm-10">@tattendance.PaidLeaveDurationTime?.ToString("HH:mm")</dd>
+            <dt class="col-sm-2">勤務時間</dt>
+            <dd class="col-sm-10">@tattendance.WorkedDurationTime?.ToString("HH:mm")</dd>
+            <dt class="col-sm-2">時間外</dt>
+            <dd class="col-sm-10">@tattendance.OvertimeDurationTime?.ToString("HH:mm")</dd>
+            <dt class="col-sm-2">備考</dt>
+            <dd class="col-sm-10">@tattendance.Remarks</dd>
+            <dt class="col-sm-2">ログイン</dt>
+            <dd class="col-sm-10">@tattendance.LoginTime?.ToString("HH:mm")</dd>
+            <dt class="col-sm-2">ログアウト</dt>
+            <dd class="col-sm-10">@tattendance.LogoutTime?.ToString("HH:mm")</dd>
+        </dl>
+        <div>
+            <a href="@($"/tattendances/edit?id={tattendance.Id}")">編集</a> |
+            <a href="@($"/tattendances?userid={tattendance.UserId}")">一覧に戻る</a>
+        </div>
+    }
+</div>
+
+@code {
+    private InputModel? tattendance;
+
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        (tattendance, _) = await InputModelService
+            .GetInputModelAsync<InputModel, TAttendance>(Id);
+
+        if (tattendance is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+
+        tattendance!.UserName = UserService.GetUserName(tattendance!.UserId);
+
+        var dateDateTime = tattendance!.Date.ToDateTime(TimeOnly.MinValue);
+        tattendance!.PaidLeaveDurationTime =
+            dateDateTime + tattendance!.PaidLeaveDuration;
+        tattendance!.WorkedDurationTime =
+            dateDateTime + tattendance!.WorkedDuration;
+        tattendance!.OvertimeDurationTime =
+            dateDateTime + tattendance!.OvertimeDuration;
+    }
+}

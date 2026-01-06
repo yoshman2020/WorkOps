@@ -1,0 +1,246 @@
+﻿@page "/tactuals/edit"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@using WorkOps.Models.Errors
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject WorkOps.Services.UserService UserService
+@inject WorkOps.Services.NavigationService NavigationService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>編集</PageTitle>
+
+<h1>編集</h1>
+
+<h2>実績</h2>
+<hr />
+@if (TActual is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4">
+            <EditForm method="post" Model="TActual" OnSubmit="UpdateTActual" FormName="edit" Enhance>
+                <DataAnnotationsValidator />
+                <ValidationSummary role="alert" />
+                <ErrorAlert ErrorCode="@ErrorCode" />
+                <div class="mb-3">
+                    <label for="username" class="form-label">担当者:</label>
+                    <InputText id="username" @bind-Value="TActual!.UserName" class="form-control-plaintext" readonly />
+                    <ValidationMessage For="() => TActual.UserName" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="project" class="form-label">プロジェクト</label>
+                    <div class="input-group">
+                        <select id="project" value="@MProjectId" @onchange="OnProjectValueChange" class="form-select" aria-required="true">
+                            <option value="">-- プロジェクト選択 --</option>
+                            @foreach (var project in Projects)
+                            {
+                                <option value="@project.Id">@project.Name</option>
+                            }
+                        </select>
+                        <button type="button" class="btn btn-primary" @onclick="OnBtnNewProjectClick">新規</button>
+                    </div>
+                    <ValidationMessage For="() => MProjectId" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="phase" class="form-label">工程</label>
+                    <div class="input-group">
+                        <InputSelect id="phase" @bind-Value="TActual.MPhaseId" class="form-select" aria-required="true">
+                            <option value="">-- 工程選択 --</option>
+                            @foreach (var phase in Phases)
+                            {
+                                <option value="@phase.Id">@phase.Name</option>
+                            }
+                        </InputSelect>
+                        <button type="button" class="btn btn-primary" @onclick="OnBtnNewPhaseClick">新規</button>
+                    </div>
+                    <ValidationMessage For="() => TActual.MPhaseId" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="startdate" class="form-label">開始日時:</label>
+                    <InputDate Type="InputDateType.DateTimeLocal" id="startdate" @bind-Value="TActual.StartDate" class="form-control" />
+                    <ValidationMessage For="() => TActual.StartDate" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="enddate" class="form-label">終了日時:</label>
+                    <InputDate Type="InputDateType.DateTimeLocal" id="enddate" @bind-Value="TActual.EndDate" class="form-control" />
+                    <ValidationMessage For="() => TActual.EndDate" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="manhour" class="form-label">作業工数:</label>
+                    <InputNumber id="manhour" @bind-Value="TActual.ManHour" class="form-control" />
+                    <ValidationMessage For="() => TActual.ManHour" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">作業内容:</label>
+                    <InputTextArea id="description" @bind-Value="TActual.Description" class="form-control large-textarea" />
+                    <ValidationMessage For="() => TActual.Description" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="progressrate" class="form-label">進捗率:</label>
+                    <div class="input-group">
+                        <InputNumber id="progressrate" @bind-Value="TActual.ProgressRate" class="form-control" min="0" max="100" /><span class="input-group-text">%</span>
+                    </div>
+                    <ValidationMessage For="() => TActual.ProgressRate" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="remarks" class="form-label">備考:</label>
+                    <InputText id="remarks" @bind-Value="TActual.Remarks" class="form-control" />
+                    <ValidationMessage For="() => TActual.Remarks" class="text-danger" />
+                </div>
+                <button type="submit" class="btn btn-primary">保存</button>
+                <button type="button" class="btn btn-danger" @onclick="DeleteTActual">削除</button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<div>
+    <a href="/tplanactuals">一覧に戻る</a>
+</div>
+
+@code {
+    /// <summary>
+    /// プロジェクトID
+    /// </summary>
+    [SupplyParameterFromQuery]
+    private int? MProjectId { get; set; }
+    /// <summary>
+    /// 工程ID
+    /// </summary>
+    [SupplyParameterFromQuery]
+    private int? MPhaseId { get; set; }
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    [SupplyParameterFromForm]
+    private InputModel? TActual { get; set; }
+    private List<MProject> Projects = new();
+    private List<MPhase> Phases = new();
+
+    /// <summary>
+    /// エラーコード
+    /// </summary>
+    private ErrorCode? ErrorCode { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Projects = await DbContext.MProject.ToListAsync();
+        (TActual, var entity) = await InputModelService
+            .GetInputModelAsync<InputModel, TActual>(Id);
+
+        if (TActual is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+
+        TActual!.UserName = UserService.GetUserName(entity!.UserId);
+
+        if (MPhaseId != null && MPhaseId != 0)
+        {
+            MProjectId = await DbContext.MPhase
+                .Where(p => p.Id == MPhaseId)
+                .Include(p => p.MProject)
+                .Select(p => p.MProjectId)
+                .FirstOrDefaultAsync();
+        }
+        else if (MProjectId != null && MProjectId != 0)
+        {
+        }
+        else
+        {
+            await DbContext.Entry(entity!)
+                .Reference(e => e.MPhase)
+                .LoadAsync();
+            await DbContext.Entry(entity!.MPhase)
+                .Reference(e => e.MProject)
+                .LoadAsync();
+            MProjectId = entity!.MPhase.MProjectId;
+            MPhaseId = entity!.MPhaseId;
+        }
+        if (MPhaseId is not null && MPhaseId != 0)
+        {            
+            Phases = await DbContext.MPhase
+                .Where(p => p.MProjectId == MProjectId)
+                .ToListAsync();            
+        }
+        TActual.MPhaseId = MPhaseId;
+    }
+
+    private async Task OnProjectValueChange(ChangeEventArgs e)
+    {
+        if (e.Value is null || string.IsNullOrEmpty(e.Value.ToString()))
+        {
+            Phases = new();
+            return;
+        }
+
+        int.TryParse(e.Value.ToString(), out var projectId);
+        MProjectId = projectId;
+        Phases = await DbContext.MPhase
+            .Where(p => p.MProjectId == MProjectId)
+            .ToListAsync();
+    }
+
+    // To protect from overposting attacks, enable the specific properties you want to bind to.
+    // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task UpdateTActual(EditContext context)
+    {
+        var project = Projects.FirstOrDefault(p => p.Id == MProjectId)?.Name;
+        var phase = Phases.FirstOrDefault(p => p.Id == TActual!.MPhaseId)?.Name;
+        TActual!.Name = $"{TActual.StartDate:yyyy/MM/dd} {project} {phase}";
+
+        if (!context.Validate() || TActual!.MPhaseId == null)
+        {
+            return;
+        }
+
+        try
+        {
+            ErrorCode = await InputModelService
+                .SaveInputModelAsync<InputModel, TActual>(TActual!, Id);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!TActualExists(TActual!.Id))
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+            else
+            {
+                throw;
+            }
+        }
+
+        if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+        {
+            NavigationService.NavigateToBack(null, null, null,
+                $"tplanactuals?userid={TActual.UserId}");
+        }
+    }
+
+    private async Task DeleteTActual()
+    {
+        await InputModelService.DeleteInputModelAsync<TActual>(Id);
+        NavigationManager.NavigateTo("/tplanactuals");
+    }
+
+    private bool TActualExists(int id)
+    {
+        return DbContext.TActual.Any(e => e.Id == id);
+    }
+
+    private void OnBtnNewProjectClick(MouseEventArgs args)
+    {
+        NavigationService.NavigateToCreatet("mprojects");
+    }
+
+    private void OnBtnNewPhaseClick(MouseEventArgs args)
+    {
+        NavigationService.NavigateToCreatet("mphases", $"mprojectid={MProjectId}");
+    }
+}

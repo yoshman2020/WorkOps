@@ -1,0 +1,71 @@
+﻿@page "/applicationusers/details"
+@attribute [Authorize(Roles = "Admin,Manager")]
+
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Data
+@using WorkOps.Models
+@using WorkOps.Services
+@using WorkOps.Utils
+@inject Microsoft.AspNetCore.Identity.UserManager<ApplicationUser> UserManager
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject NavigationManager NavigationManager
+
+<PageTitle>詳細</PageTitle>
+
+<h1>詳細</h1>
+
+<div>
+    <h2>ユーザー</h2>
+    <hr />
+    @if (applicationuser is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <dl class="row">
+            <dt class="col-sm-2">名前</dt>
+            <dd class="col-sm-10">@applicationuser.FullName</dd>
+            <dt class="col-sm-2">メールアドレス</dt>
+            <dd class="col-sm-10">@applicationuser.Email</dd>
+            <dt class="col-sm-2">役職</dt>
+            <dd class="col-sm-10">@applicationuser.RoleName</dd>
+            <dt class="col-sm-2">勤務時間</dt>
+            <dd class="col-sm-10">@applicationuser.WorkTimeString</dd>
+        </dl>
+        <div>
+            <a href="@($"/applicationusers/edit?id={applicationuser.Id}")">編集</a> |
+            <a href="@($"/applicationusers")">一覧に戻る</a>
+        </div>
+    }
+</div>
+
+@code {
+    private InputModel? applicationuser;
+
+    [SupplyParameterFromQuery]
+    private string Id { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var entity = await DbContext.Users
+            .FirstOrDefaultAsync(m => m.Id == Id);
+        if (entity == null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+        var role = await UserManager.GetRolesAsync(entity!);
+        var workTime = DbContext.MWorkTime
+            .Where(workTime => workTime.Id == entity!.WorkTimeId)
+            .FirstOrDefault();
+        applicationuser = new InputModel
+        {
+            RoleName = UserService.GetRoleName(role),
+            WorkTimeString = workTime != null
+                ? $"{workTime.StartTime} - {workTime.EndTime}"
+                : ""
+        };
+        PropertyUtil.CopyProperties(entity, applicationuser);
+    }
+}

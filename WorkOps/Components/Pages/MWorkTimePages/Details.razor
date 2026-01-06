@@ -1,0 +1,67 @@
+﻿@page "/mworktimes/details"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject NavigationManager NavigationManager
+
+<PageTitle>詳細</PageTitle>
+
+<h1>詳細</h1>
+
+<div>
+    <h2>勤務時間</h2>
+    <hr />
+    @if (mworktime is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <dl class="row">
+            <dt class="col-sm-2">勤務時間名</dt>
+            <dd class="col-sm-10">@mworktime.Name</dd>
+            <dt class="col-sm-2">開始時間</dt>
+            <dd class="col-sm-10">@mworktime.StartTime</dd>
+            <dt class="col-sm-2">終了時間</dt>
+            <dd class="col-sm-10">@mworktime.EndTime</dd>
+            <dt class="col-sm-2">休憩開始時間</dt>
+            <dd class="col-sm-10">@mworktime.BreakStartTime</dd>
+            <dt class="col-sm-2">休憩終了時間</dt>
+            <dd class="col-sm-10">@mworktime.BreakEndTime</dd>
+            <dt class="col-sm-2">勤務時間</dt>
+            <dd class="col-sm-10">@mworktime.WorkedDurationString</dd>
+            <dt class="col-sm-2">備考</dt>
+            <dd class="col-sm-10">@mworktime.Remarks</dd>
+            <dt class="col-sm-2">作成日時</dt>
+            <dd class="col-sm-10">@mworktime.CreatedAt</dd>
+            <dt class="col-sm-2">作成者</dt>
+            <dd class="col-sm-10">@mworktime.CreatedUserName</dd>
+            <dt class="col-sm-2">更新日時</dt>
+            <dd class="col-sm-10">@mworktime.UpdatedAt</dd>
+            <dt class="col-sm-2">更新者</dt>
+            <dd class="col-sm-10">@mworktime.UpdatedUserName</dd>
+        </dl>
+        <div>
+            <a href="@($"/mworktimes/edit?id={mworktime.Id}")">編集</a> |
+            <a href="@($"/mworktimes")">一覧に戻る</a>
+        </div>
+    }
+</div>
+
+@code {
+    private InputModel? mworktime;
+
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        (mworktime, _) = await InputModelService
+            .GetInputModelAsync<InputModel, MWorkTime>(Id);
+
+        if (mworktime is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+    }
+}

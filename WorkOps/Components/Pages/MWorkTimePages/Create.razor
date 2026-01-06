@@ -1,0 +1,90 @@
+﻿@page "/mworktimes/create"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@using WorkOps.Models.Errors
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject WorkOps.Services.NavigationService NavigationService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>新規作成</PageTitle>
+
+<h1>新規作成</h1>
+
+<h2>勤務時間</h2>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <EditForm method="post" Model="MWorkTime" OnValidSubmit="AddMWorkTime" FormName="create" Enhance>
+            <DataAnnotationsValidator />
+            <ErrorAlert ErrorCode="@ErrorCode" />
+            <div class="mb-3">
+                <label for="name" class="form-label">勤務時間名:</label>
+                <InputText id="name" @bind-Value="MWorkTime!.Name" class="form-control" aria-required="true" />
+                <ValidationMessage For="() => MWorkTime.Name" class="text-danger" />
+            </div>
+            <ValidationSummary class="text-danger" role="alert"/>
+            <div class="mb-3">
+                <label for="starttime" class="form-label">開始時間:</label> 
+                <InputDate Type="InputDateType.Time" id="starttime" @bind-Value="MWorkTime!.StartTime" class="form-control" /> 
+                <ValidationMessage For="() => MWorkTime.StartTime" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="endtime" class="form-label">終了時間:</label> 
+                <InputDate Type="InputDateType.Time" id="endtime" @bind-Value="MWorkTime.EndTime" class="form-control" /> 
+                <ValidationMessage For="() => MWorkTime.EndTime" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="breakstarttime" class="form-label">休憩開始時間:</label> 
+                <InputDate Type="InputDateType.Time" id="breakstarttime" @bind-Value="MWorkTime.BreakStartTime" class="form-control" />
+                <ValidationMessage For="() => MWorkTime.BreakStartTime" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="breakendtime" class="form-label">休憩終了時間:</label> 
+                <InputDate Type="InputDateType.Time" id="breakendtime" @bind-Value="MWorkTime.BreakEndTime" class="form-control" />
+                <ValidationMessage For="() => MWorkTime.BreakEndTime" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="workedduration" class="form-label">勤務時間:</label> 
+                <InputDate Type="InputDateType.Time" id="workedduration" @bind-Value="MWorkTime.WorkedDurationTime" class="form-control" />
+                <ValidationMessage For="() => MWorkTime.WorkedDurationTime" class="text-danger" /> 
+            </div>                
+            <div class="mb-3">
+                <label for="remarks" class="form-label">備考:</label> 
+                <InputText id="remarks" @bind-Value="MWorkTime.Remarks" class="form-control" /> 
+                <ValidationMessage For="() => MWorkTime.Remarks" class="text-danger" /> 
+            </div>
+            <button type="submit" class="btn btn-primary">登録</button>
+        </EditForm>
+    </div>
+</div>
+
+<div>
+    <a href="/mworktimes">一覧に戻る</a>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    private InputModel? MWorkTime { get; set; }
+
+    /// <summary>
+    /// エラーコード
+    /// </summary>
+    private ErrorCode? ErrorCode { get; set; }
+
+    protected override void OnInitialized() => MWorkTime ??= new();
+
+    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task AddMWorkTime()
+    {
+        MWorkTime!.WorkedDuration = MWorkTime.WorkedDurationTime.ToTimeSpan();
+        ErrorCode = await InputModelService
+            .SaveInputModelAsync<InputModel, MWorkTime>(MWorkTime!);
+
+        if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+        {
+            NavigationManager.NavigateTo("/mworktimes");
+        }
+    }
+}

@@ -1,0 +1,77 @@
+﻿@page "/applicationusers"
+@attribute [Authorize(Roles = "Admin,Manager")]
+
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using WorkOps.Data
+@using WorkOps.Models
+@using WorkOps.Utils
+@inject Microsoft.AspNetCore.Identity.UserManager<ApplicationUser> UserManager
+@inject Microsoft.AspNetCore.Identity.RoleManager<Microsoft.AspNetCore.Identity.IdentityRole> RoleManager
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject WorkOps.Services.UserService UserService
+@rendermode InteractiveServer
+
+<PageTitle>ユーザー一覧</PageTitle>
+
+<h1>ユーザー一覧</h1>
+
+<p>
+    <a href="applicationusers/create">新規作成</a>
+</p>
+
+<QuickGrid Class="table" Items="InputModels" RowClass="GetRowClass">
+    <DisplayPropertyColumn Property="applicationuser => applicationuser.FullName" />
+    <DisplayPropertyColumn Property="applicationuser => applicationuser.Email" />
+    <DisplayPropertyColumn Property="applicationuser => applicationuser.RoleName" />
+    <DisplayPropertyColumn Property="applicationuser => applicationuser.WorkTimeString" />
+    <TemplateColumn Context="applicationuser" Class="text-nowrap">
+        <a href="@($"applicationusers/edit?id={applicationuser.Id}")">編集</a> |
+        <a href="@($"applicationusers/details?id={applicationuser.Id}")">詳細</a> |
+        <a href="@($"applicationusers/delete?id={applicationuser.Id}")">削除</a>
+    </TemplateColumn>
+</QuickGrid>
+
+@code {
+    private IQueryable<InputModel>? InputModels;
+    PaginationState pagination = new PaginationState { ItemsPerPage = 20 };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        var inputModels = new List<InputModel>();
+        var users = await UserService.GetUsersAsync(true);
+        foreach (var user in users)
+        {
+            var inputModel = new InputModel();
+            PropertyUtil.CopyProperties(user, inputModel);
+            var role = await UserManager.GetRolesAsync(user);
+            inputModel.RoleName = role.Contains("Manager")
+                ? "管理者" : "一般ユーザー";
+            var workTime = DbContext.MWorkTime
+                .Where(workTime => workTime.Id == user.WorkTimeId)
+                .FirstOrDefault();
+            inputModel.WorkTimeString = workTime != null
+                ? $"{workTime.StartTime} - {workTime.EndTime}"
+                : "";
+            inputModels.Add(inputModel);
+        }
+        InputModels = inputModels.AsQueryable();
+    }
+
+    /// <summary>
+    /// 行クラス取得
+    /// 削除済みのユーザーはグレイ
+    /// </summary>
+    /// <param name="applicationuser">行</param>
+    /// <returns>行クラス</returns>
+    private static string? GetRowClass(InputModel applicationuser)
+    {
+        return applicationuser.IsDeleted ? "table-secondary" : "";
+    }
+}

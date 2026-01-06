@@ -1,0 +1,57 @@
+﻿@page "/mcustomers/details"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject NavigationManager NavigationManager
+
+<PageTitle>詳細</PageTitle>
+
+<h1>詳細</h1>
+
+<div>
+    <h2>顧客</h2>
+    <hr />
+    @if (mcustomer is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <dl class="row">
+            <dt class="col-sm-2">顧客名</dt>
+            <dd class="col-sm-10">@mcustomer.Name</dd>
+            <dt class="col-sm-2">備考</dt>
+            <dd class="col-sm-10">@mcustomer.Remarks</dd>
+            <dt class="col-sm-2">作成日時</dt>
+            <dd class="col-sm-10">@mcustomer.CreatedAt</dd>
+            <dt class="col-sm-2">作成者</dt>
+            <dd class="col-sm-10">@mcustomer.CreatedUserName</dd>
+            <dt class="col-sm-2">更新日時</dt>
+            <dd class="col-sm-10">@mcustomer.UpdatedAt</dd>
+            <dt class="col-sm-2">更新者</dt>
+            <dd class="col-sm-10">@mcustomer.UpdatedUserName</dd>
+        </dl>
+        <div>
+            <a href="@($"/mcustomers/edit?id={mcustomer.Id}")">編集</a> |
+            <a href="@($"/mcustomers")">一覧に戻る</a>
+        </div>
+    }
+</div>
+
+@code {
+    private InputModel? mcustomer;
+
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        (mcustomer, _) = await InputModelService
+            .GetInputModelAsync<InputModel, MCustomer>(Id);
+
+        if (mcustomer is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+    }
+}

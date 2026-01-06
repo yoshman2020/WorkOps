@@ -1,0 +1,68 @@
+﻿@page "/mholidays/create"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@using WorkOps.Models.Errors
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>新規作成</PageTitle>
+
+<h1>新規作成</h1>
+
+<h2>休日・祝祭日</h2>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <EditForm method="post" Model="MHoliday" OnValidSubmit="AddMHoliday" FormName="create" Enhance>
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert" />
+            <ErrorAlert ErrorCode="@ErrorCode" />
+            <div class="mb-3">
+                <label for="date" class="form-label">日付:</label>
+                <InputDate id="date" @bind-Value="MHoliday!.Date" class="form-control" />
+                <ValidationMessage For="() => MHoliday.Date" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="name" class="form-label">休日・祝祭日名:</label>
+                <InputText id="name" @bind-Value="MHoliday.Name" class="form-control" aria-required="true" />
+                <ValidationMessage For="() => MHoliday.Name" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="remarks" class="form-label">備考:</label>
+                <InputText id="remarks" @bind-Value="MHoliday.Remarks" class="form-control" />
+                <ValidationMessage For="() => MHoliday.Remarks" class="text-danger" />
+            </div>
+            <button type="submit" class="btn btn-primary">登録</button>
+        </EditForm>
+    </div>
+</div>
+
+<div>
+    <a href="/mholidays">一覧に戻る</a>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    private InputModel? MHoliday { get; set; }
+
+    /// <summary>
+    /// エラーコード
+    /// </summary>
+    private ErrorCode? ErrorCode { get; set; }
+
+    protected override void OnInitialized() => MHoliday ??= new();
+
+    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task AddMHoliday()
+    {
+        ErrorCode = await InputModelService
+            .SaveInputModelAsync<InputModel, MHoliday>(MHoliday!);
+
+        if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+        {
+            NavigationManager.NavigateTo("/mholidays");
+        }
+    }
+}

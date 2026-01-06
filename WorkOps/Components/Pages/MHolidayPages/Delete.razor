@@ -1,0 +1,62 @@
+﻿@page "/mholidays/delete"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject NavigationManager NavigationManager
+
+<PageTitle>削除</PageTitle>
+
+<h1>削除</h1>
+
+<p>削除します。よろしいですか？</p>
+<div>
+    <h2>休日・祝祭日</h2>
+    <hr />
+    @if (mholiday is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <dl class="row">
+            <dt class="col-sm-2">日付</dt>
+            <dd class="col-sm-10">@mholiday.Date</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">休日・祝祭日名</dt>
+            <dd class="col-sm-10">@mholiday.Name</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">備考</dt>
+            <dd class="col-sm-10">@mholiday.Remarks</dd>
+        </dl>
+        <EditForm method="post" Model="mholiday" OnValidSubmit="DeleteMHoliday" FormName="delete" Enhance>
+            <button type="submit" class="btn btn-danger" disabled="@(mholiday is null)">削除</button> |
+            <a href="/mholidays">一覧に戻る</a>
+        </EditForm>
+    }
+</div>
+
+@code {
+    private InputModel? mholiday;
+
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        (mholiday, _) = await InputModelService
+            .GetInputModelAsync<InputModel, MHoliday>(Id);
+
+        if (mholiday is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+    }
+
+    private async Task DeleteMHoliday()
+    {
+        await InputModelService.DeleteInputModelAsync<MHoliday>(Id);
+        NavigationManager.NavigateTo("/mholidays");
+    }
+}

@@ -1,0 +1,173 @@
+﻿@page "/applicationusers/edit"
+@attribute [Authorize(Roles = "Admin,Manager")]
+
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Data
+@using WorkOps.Models
+@using WorkOps.Services
+@using WorkOps.Utils
+@inject Microsoft.AspNetCore.Identity.UserManager<ApplicationUser> UserManager
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>編集</PageTitle>
+
+<h1>編集</h1>
+
+<h2>顧客</h2>
+<hr />
+@if (ApplicationUser is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4">
+            <EditForm method="post" Model="ApplicationUser" OnValidSubmit="UpdateApplicationUser" FormName="edit" Enhance>
+                <DataAnnotationsValidator />
+                <ValidationSummary role="alert" />
+                <ErrorAlert Message="@errorMessage" />
+                <div class="mb-3">
+                    <label for="fullname" class="form-label">名前:</label>
+                    <InputText id="fullname" @bind-Value="ApplicationUser.FullName" class="form-control" aria-required="true" />
+                    <ValidationMessage For="() => ApplicationUser.FullName" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email:</label>
+                    <InputText id="email" @bind-Value="ApplicationUser.Email" class="form-control" aria-required="true" />
+                    <ValidationMessage For="() => ApplicationUser.Email" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="role" class="form-label">役職:</label>
+                    <InputSelect id="role" @bind-Value="ApplicationUser.Role" class="form-control" aria-required="true">
+                        @foreach (var role in UserService.Roles)
+                        {
+                            <option value="@role.Key">@role.Value</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="() => ApplicationUser.Role" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="worktimeid">勤務時間:</label>
+                    <InputSelect id="worktimeid" @bind-Value="ApplicationUser.WorkTimeId" class="form-control" aria-required="true">
+                        @foreach (var workTime in DbContext.MWorkTime)
+                        {
+                            <option value="@workTime.Id">@workTime.StartTime ～ @workTime.EndTime</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="() => ApplicationUser.WorkTimeId" class="text-danger" />
+                </div>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<div>
+    <a href="/applicationusers">一覧に戻る</a>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private string Id { get; set; } = string.Empty;
+
+    [SupplyParameterFromForm]
+    private InputModel? ApplicationUser { get; set; }
+
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var entity = await DbContext.Users
+            .FirstOrDefaultAsync(m => m.Id == Id);
+        if (entity == null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+        var role = await UserManager.GetRolesAsync(entity!);
+        var workTime = DbContext.MWorkTime
+            .Where(workTime => workTime.Id == entity!.WorkTimeId)
+            .FirstOrDefault();
+        ApplicationUser = new InputModel
+        {
+            Role = role.FirstOrDefault() ?? "",
+            RoleName = UserService.GetRoleName(role),
+            WorkTimeString = workTime != null
+                ? $"{workTime.StartTime} - {workTime.EndTime}"
+                : ""
+        };
+        PropertyUtil.CopyProperties(entity, ApplicationUser);
+    }
+
+    // To protect from overposting attacks, enable the specific properties you want to bind to.
+    // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task UpdateApplicationUser()
+    {
+        try
+        {
+            var user = await DbContext.Users
+                .FirstOrDefaultAsync(m => m.Id == ApplicationUser!.Id);
+            if (user == null)
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+
+            if (user!.Email != ApplicationUser!.Email)
+            {
+                // メールアドレス変更
+                var code = await UserManager.GenerateChangeEmailTokenAsync(
+                    user!, ApplicationUser!.Email);
+                var result = await UserManager.ChangeEmailAsync(
+                    user!, ApplicationUser!.Email, code);
+                if (!result.Succeeded)
+                {
+                    errorMessage = "Error changing email.";
+                    return;
+                }
+            }
+
+            if (UserManager.GetRolesAsync(user!).Result.FirstOrDefault()
+                != ApplicationUser!.RoleName)
+            {
+                // 役職変更
+                var currentRoles = await UserManager.GetRolesAsync(user!);
+                foreach (var currentRole in currentRoles)
+                {
+                    await UserManager.RemoveFromRoleAsync(user!, currentRole);
+                }
+                await UserManager.AddToRoleAsync(user!, ApplicationUser!.Role);
+            }
+
+            if (user.FullName != ApplicationUser.FullName
+                || user.WorkTimeId != ApplicationUser!.WorkTimeId)
+            {
+                user.FullName = ApplicationUser.FullName;
+                // 勤務時間変更
+                user.WorkTimeId = ApplicationUser!.WorkTimeId;
+                DbContext.Update(user);
+                await DbContext.SaveChangesAsync();
+            }
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!ApplicationUserExists(ApplicationUser!.Id))
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+            else
+            {
+                throw;
+            }
+        }
+
+        NavigationManager.NavigateTo("/applicationusers");
+    }
+
+    private bool ApplicationUserExists(string id)
+    {
+        return DbContext.Users.Any(e => e.Id == id);
+    }
+}

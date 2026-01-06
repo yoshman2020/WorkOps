@@ -1,0 +1,199 @@
+﻿@page "/tplans/create"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@using WorkOps.Models.Errors
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject WorkOps.Services.UserService UserService
+@inject WorkOps.Services.NavigationService NavigationService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@rendermode InteractiveServer
+
+<PageTitle>新規作成</PageTitle>
+
+<h1>新規作成</h1>
+
+<h2>予定</h2>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <EditForm method="post" Model="TPlan" OnSubmit="AddTPlan" FormName="create" Enhance>
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert" />
+            <ErrorAlert ErrorCode="@ErrorCode" />
+            <div class="mb-3">
+                <label for="username" class="form-label">担当者:</label>
+                <InputText id="username" @bind-Value="TPlan!.UserName" class="form-control-plaintext" readonly />
+                <ValidationMessage For="() => TPlan.UserName" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="project" class="form-label">プロジェクト</label>
+                <div class="input-group">
+                    <select id="project" @onchange="OnProjectValueChange" class="form-select" aria-required="true">
+                        <option value="">-- プロジェクト選択 --</option>
+                        @foreach (var project in Projects)
+                        {
+                            <option value="@project.Id" selected="@(MProjectId == project.Id)">@project.Name</option>
+                        }
+                    </select>
+                    <button type="button" class="btn btn-primary" @onclick="OnBtnNewProjectClick">新規</button>
+                </div>
+                <ValidationMessage For="() => MProjectId" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="phase" class="form-label">工程</label>
+                <div class="input-group">
+                    <InputSelect id="phase" @bind-Value="TPlan!.MPhaseId" class="form-select" aria-required="true">
+                        <option value="">-- 工程選択 --</option>
+                        @foreach (var phase in Phases)
+                        {
+                            <option value="@phase.Id">@phase.Name</option>
+                        }
+                    </InputSelect>
+                    <button type="button" class="btn btn-primary" @onclick="OnBtnNewPhaseClick">新規</button>
+                </div>
+                <ValidationMessage For="() => TPlan.MPhaseId" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="startdate" class="form-label">開始日時:</label>
+                <InputDate Type="InputDateType.DateTimeLocal" id="startdate" @bind-Value="TPlan.StartDate" class="form-control" />
+                <ValidationMessage For="() => TPlan.StartDate" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="enddate" class="form-label">終了日時:</label>
+                <InputDate Type="InputDateType.DateTimeLocal" id="enddate" @bind-Value="TPlan.EndDate" class="form-control" />
+                <ValidationMessage For="() => TPlan.EndDate" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="manhour" class="form-label">作業工数:</label>
+                <InputNumber id="manhour" @bind-Value="TPlan.ManHour" class="form-control" />
+                <ValidationMessage For="() => TPlan.ManHour" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="remarks" class="form-label">備考:</label>
+                <InputText id="remarks" @bind-Value="TPlan.Remarks" class="form-control" />
+                <ValidationMessage For="() => TPlan.Remarks" class="text-danger" />
+            </div>
+            <InputHidden @bind-Value="TPlan.Name" />
+            <button type="submit" class="btn btn-primary">登録</button>
+        </EditForm>
+    </div>
+</div>
+
+<div>
+    <a href="/tplanactuals">一覧に戻る</a>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private string? UserId { get; set; }
+    /// <summary>
+    /// プロジェクトID
+    /// </summary>
+    [SupplyParameterFromQuery]
+    private int? MProjectId { get; set; }
+    /// <summary>
+    /// 工程ID
+    /// </summary>
+    [SupplyParameterFromQuery]
+    private int? MPhaseId { get; set; }
+    /// <summary>
+    /// 遷移元
+    /// </summary>
+    [SupplyParameterFromQuery]
+    private string? From { get; set; }
+    [SupplyParameterFromForm]
+    private InputModel? TPlan { get; set; }
+    private List<MProject> Projects = new();
+    private List<MPhase> Phases = new();
+
+    /// <summary>
+    /// エラーコード
+    /// </summary>
+    private ErrorCode? ErrorCode { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Projects = await DbContext.MProject.ToListAsync();
+        TPlan ??= new();
+        TPlan.StartDate = DateTime.Today.AddHours(9);
+        TPlan.EndDate = DateTime.Today.AddHours(18);
+        TPlan.ManHour = 8;
+
+        if (MPhaseId != null && MPhaseId != 0)
+        {
+            MProjectId = await DbContext.MPhase
+                .Where(p => p.Id == MPhaseId)
+                .Include(p => p.MProject)
+                .Select(p => p.MProjectId)
+                .FirstOrDefaultAsync();
+        }
+        if (MPhaseId is not null && MPhaseId != 0)
+        {
+            Phases = await DbContext.MPhase
+                .Where(p => p.MProjectId == MProjectId)
+                .ToListAsync();
+        }
+        TPlan.MPhaseId = MPhaseId;
+
+        if (string.IsNullOrEmpty(UserId))
+        {
+            var users = await UserService.GetUsersAsync();
+            UserId = await UserService.GetUserIdAsync(users, UserId!);
+        }
+
+        TPlan.UserName = UserService.GetUserName(UserId);
+    }
+
+    private async Task OnProjectValueChange(ChangeEventArgs e)
+    {
+        if (e.Value is null)
+        {
+            Phases = new();
+            return;
+        }
+        MProjectId = int.Parse(e.Value.ToString() ?? "0");
+        Phases = await DbContext.MPhase
+            .Where(p => p.MProjectId == MProjectId)
+            .ToListAsync();
+    }
+
+    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task AddTPlan(EditContext context)
+    {
+        if (UserId == null)
+        {
+            return;
+        }
+        var project = Projects.FirstOrDefault(p => p.Id == MProjectId)?.Name;
+        var phase = Phases.FirstOrDefault(p => p.Id == TPlan!.MPhaseId)?.Name;
+        TPlan!.Name = $"{TPlan.StartDate:yyyy/MM/dd} {project} {phase}";
+        TPlan!.UserId = UserId;
+
+        if (!context.Validate() || TPlan!.MPhaseId == null)
+        {
+            return;
+        }
+
+        ErrorCode = await InputModelService
+            .SaveInputModelAsync<InputModel, TPlan>(TPlan);
+
+        if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+        {
+            NavigationService.NavigateToBack(From, "tplanid", $"{TPlan.Id}",
+                $"tplanactuals?userid={UserId}");
+        }
+    }
+
+    private void OnBtnNewProjectClick(MouseEventArgs args)
+    {
+        NavigationService.NavigateToCreatet("mprojects");
+    }
+
+    private void OnBtnNewPhaseClick(MouseEventArgs args)
+    {
+        NavigationService.NavigateToCreatet("mphases", $"mprojectid={MProjectId}");
+    }
+}

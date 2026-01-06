@@ -1,0 +1,41 @@
+﻿@* 
+/// <summary>
+/// 値入力時にイベントを発生する入力コントロール
+/// </summary>
+*@
+
+<input @bind:event="oninput" @bind:get="Value" @bind:set="OnInput" placeholder="@Placeholder" />
+
+@code {
+    /// <summary>
+    /// 値
+    /// </summary>
+    [Parameter] public string? Value { get; set; }
+    /// <summary>
+    /// 値変更時のイベント
+    /// </summary>
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    /// <summary>
+    /// プレースホルダ
+    /// </summary>
+    [Parameter] public string? Placeholder { get; set; }
+    /// <summary>
+    /// 入力時のコールバック
+    /// </summary>
+    [Parameter] public EventCallback OnInputCallback { get; set; }
+
+    /// <summary>
+    /// 入力時の処理
+    /// </summary>
+    /// <param name="value"></param>
+    /// <returns></returns>
+    private async Task OnInput(string? value)
+    {
+        Value = value;
+        await ValueChanged.InvokeAsync(value);
+        if (OnInputCallback.HasDelegate)
+        {
+            await OnInputCallback.InvokeAsync();
+        }
+    }
+}

@@ -1,0 +1,29 @@
+﻿@using WorkOps.Models.Errors
+@if (!string.IsNullOrEmpty(Message))
+{
+    <div class="alert alert-danger" role="alert">
+        @Message
+    </div>
+}
+
+@code {
+    [Parameter]
+    public ErrorCode? ErrorCode { get; set; }
+
+    [Parameter]
+    public string? Message { get; set; }
+
+    [Parameter]
+    public object[]? Args { get; set; }
+
+
+    protected override void OnParametersSet()
+    {
+        if (Message == null && ErrorCode != null
+            && ErrorCode != WorkOps.Models.Errors.ErrorCode.None)
+        {
+            Message = ErrorMessage.GetMessage(
+                ErrorCode.Value, Args ?? Array.Empty<object>());
+        }
+    }
+}

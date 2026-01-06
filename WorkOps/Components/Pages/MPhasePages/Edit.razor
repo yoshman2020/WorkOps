@@ -1,0 +1,132 @@
+﻿@page "/mphases/edit"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@using WorkOps.Models.Errors
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject WorkOps.Services.NavigationService NavigationService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>編集</PageTitle>
+
+<h1>編集</h1>
+
+<h2>工程</h2>
+<hr />
+@if (MPhase is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4">
+            <EditForm method="post" Model="MPhase" OnValidSubmit="UpdateMPhase" FormName="edit" Enhance>
+                <DataAnnotationsValidator />
+                <ValidationSummary role="alert" />
+                <ErrorAlert ErrorCode="@ErrorCode" />
+                <div class="mb-3">
+                    <label for="project" class="form-label">プロジェクト:</label>
+                    <div class="input-group">
+                        <InputSelect id="project" @bind-Value="MPhase.MProjectId" class="form-select" aria-required="true">
+                            <option value="">-- プロジェクト選択 --</option>
+                            @foreach (var project in DbContext.MProject.OrderBy(c => c.Name))
+                            {
+                                <option value="@project.Id">@project.Name</option>
+                            }
+                        </InputSelect>
+                        <button type="button" class="btn btn-primary" @onclick="OnBtnNewProjectClick">新規</button>
+                    </div>
+                    <ValidationMessage For="() => MPhase.MProjectId" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="name" class="form-label">工程:</label>
+                    <InputText id="name" @bind-Value="MPhase.Name" class="form-control" aria-required="true" />
+                    <ValidationMessage For="() => MPhase.Name" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="remarks" class="form-label">備考:</label>
+                    <InputText id="remarks" @bind-Value="MPhase.Remarks" class="form-control" />
+                    <ValidationMessage For="() => MPhase.Remarks" class="text-danger" />
+                </div>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<div>
+    <a href="/mphases">一覧に戻る</a>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+    /// <summary>
+    /// プロジェクトID
+    /// </summary>
+    [SupplyParameterFromQuery]
+    private int? MProjectId { get; set; }
+
+    [SupplyParameterFromForm]
+    private InputModel? MPhase { get; set; }
+
+    /// <summary>
+    /// エラーコード
+    /// </summary>
+    private ErrorCode? ErrorCode { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        (MPhase, _) = await InputModelService
+            .GetInputModelAsync<InputModel, MPhase>(Id);
+
+        if (MPhase is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+
+        if (MProjectId != null && MProjectId != 0)
+        {
+            MPhase!.MProjectId = MProjectId;
+        }
+    }
+
+    // To protect from overposting attacks, enable the specific properties you want to bind to.
+    // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task UpdateMPhase()
+    {
+        try
+        {
+            ErrorCode = await InputModelService
+                .SaveInputModelAsync<InputModel, MPhase>(MPhase!, Id);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!MPhaseExists(MPhase!.Id))
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+            else
+            {
+                throw;
+            }
+        }
+
+        if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+        {
+            NavigationManager.NavigateTo("/mphases");
+        }
+    }
+
+    private bool MPhaseExists(int id)
+    {
+        return DbContext.MPhase.Any(e => e.Id == id);
+    }
+
+    private void OnBtnNewProjectClick(MouseEventArgs args)
+    {
+        NavigationService.NavigateToCreatet("mprojects");
+    }
+}

@@ -1,0 +1,101 @@
+﻿@page "/tplanactuals"
+@using Microsoft.AspNetCore.Components.QuickGrid
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject WorkOps.Services.UserService UserService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>進捗管理</PageTitle>
+
+<h3>進捗管理</h3>
+
+<form action="/tplanactuals" data-enhance data-parmanent>
+    <div class="row">
+        <div class="col-auto">
+            <select id="user" @bind="UserId" class="form-select" aria-required="true">
+                @foreach (var user in Users)
+                {
+                    <option value="@user.Id">@user.FullName</option>
+                }
+                <option value="">-- 集計 --</option>
+            </select>
+        </div>
+        <div class="col-auto d-flex">
+            <input type="date" id="datefrom" @bind="DateFrom" class="form-control" />
+            ～
+            <input type="date" id="dateTo" @bind="DateTo" class="form-control" />
+        </div>
+        <div class="col-auto">
+            <button id="prev" @onclick="() => ChangeMonth(-1)" class="btn btn-primary">
+                &lt;
+            </button>
+            <button id="current" @onclick="() => ChangeMonth(0)" class="btn btn-primary">
+                &cir;
+            </button>
+            <button id="prev" @onclick="() => ChangeMonth(1)" class="btn btn-primary">
+                &gt;
+            </button>
+        </div>
+        <div class="col">
+            <button id="excel" @onclick="DownloadExcelAsync" class="btn btn-primary">Excel出力</button>
+        </div>
+    </div>
+</form>
+
+<div>
+    <QuickGrid Class="table table-striped" Items="InputModels!.AsQueryable()" Pagination="pagination" RowClass="GetRowClass">
+        <DisplayPropertyColumn Property="tplanactual => tplanactual.PhaseName" Class="text-nowrap" />
+        <DisplayPropertyColumn Property="tplanactual => tplanactual.ManHour" Format="#.#" />
+        <DisplayPropertyColumn Property="tplanactual => tplanactual.ProgressRateString" />
+        <DisplayPropertyColumn Property="tplanactual => tplanactual.EndDate" Format="MM/dd" />
+        <DisplayPropertyColumn Property="tplanactual => tplanactual.TypeName" />
+
+        @foreach (var date in Dates!)
+        {
+            var dow = date.DayOfWeek;
+            var className = dow switch
+            {
+                DayOfWeek.Saturday => "saturday",
+                DayOfWeek.Sunday => "sunday",
+                _ => ""
+            };
+            var isHolyday = DbContext.MHoliday
+            .Any(h => h.Date == DateOnly.FromDateTime(date));
+            if (isHolyday)
+            {
+                className = "holiday";
+            }
+            <TemplateColumn Context="tplanactual" Class="@($"text-center px-0 {className}")">
+                <HeaderTemplate>
+                    <span>@date.ToString("MM/dd")</span>
+                </HeaderTemplate>
+                <ChildContent>
+                    @if (tplanactual.Cells[date].Item1 != 0)
+                    {
+                        var baseurl = tplanactual.IsActual ? $"/tactuals" : $"/tplans";
+                        var url = $"{baseurl}/edit?id={tplanactual.Cells[date].Item1}";
+                        <a href="@url">@tplanactual.Cells[date].Item2</a>
+                    }
+                </ChildContent>
+            </TemplateColumn>
+        }
+    </QuickGrid>
+</div>
+<Paginator State="pagination" />
+<script src="js/download.js"></script>
+
+<p>
+    @if (!string.IsNullOrEmpty(UserId))
+    {
+        <a href="/tplans/create?userid=@UserId" class="btn btn-primary">新規予定</a>
+        <a href="/tactuals/create?userid=@UserId" class="btn btn-danger">新規実績</a>
+    }
+    else
+    {
+        <span class="btn btn-primary disabled">新規予定</span>
+        <span class="btn btn-primary disabled">新規実績</span>
+    }
+</p>

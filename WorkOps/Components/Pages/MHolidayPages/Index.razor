@@ -1,0 +1,84 @@
+﻿@page "/mholidays"
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using System.Threading.Tasks
+@using WorkOps.Models
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@rendermode InteractiveServer
+
+<PageTitle>休日・祝祭日一覧</PageTitle>
+
+<h1>休日・祝祭日一覧</h1>
+
+<form action="/mholidays" data-enhance data-parmanent>
+    <div class="row">
+        <div class="col-auto d-flex">
+            <input type="number" id="year" @bind="Year" class="form-control" />
+        </div>
+    </div>
+</form>
+
+<p>
+    <a href="mholidays/create">新規作成</a>
+</p>
+
+<QuickGrid Class="table" Items="InputModels" Pagination="pagination">
+    <DisplayPropertyColumn Property="mholiday => mholiday.Date" />
+    <DisplayPropertyColumn Property="mholiday => mholiday.Name" />
+    <DisplayPropertyColumn Property="mholiday => mholiday.Remarks" />
+    <TemplateColumn Context="mholiday" Class="text-nowrap">
+        <a href="@($"mholidays/edit?id={mholiday.Id}")">編集</a> |
+        <a href="@($"mholidays/details?id={mholiday.Id}")">詳細</a> |
+        <a href="@($"mholidays/delete?id={mholiday.Id}")">削除</a>
+    </TemplateColumn>
+</QuickGrid>
+<Paginator State="pagination" />
+
+@code {
+    private int _year;
+    private int Year
+    {
+        get => _year;
+        set
+        {
+            if (_year != value)
+            {
+                _year = value;
+#pragma warning disable CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
+                LoadSelectedDataAsync();
+#pragma warning restore CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
+            }
+        }
+    }
+    private IQueryable<InputModel>? InputModels;
+    PaginationState pagination = new PaginationState { ItemsPerPage = 30 };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _year = DateTime.Today.Year;
+        await LoadSelectedDataAsync();
+    }
+
+    /// <summary>
+    /// データ読み込み
+    /// </summary>
+    /// <returns></returns>
+    private async Task LoadSelectedDataAsync()
+    {
+        InputModels = await LoadDataAsync(_year);
+    }
+
+    private async Task<IQueryable<InputModel>> LoadDataAsync(int year)
+    {
+        var (inputModels, _) = await InputModelService
+            .GetInputModelsAsync<InputModel, MHoliday>();
+
+        if (year != 0)
+        {
+            inputModels = inputModels.Where(
+                im => im.Date.Year == year);
+        }
+        return inputModels;
+    }
+}

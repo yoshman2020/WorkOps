@@ -1,0 +1,70 @@
+﻿@page "/mcustomers/create"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@using WorkOps.Models.Errors
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject WorkOps.Services.NavigationService NavigationService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>新規作成</PageTitle>
+
+<h1>新規作成</h1>
+
+<h2>顧客</h2>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <EditForm method="post" Model="MCustomer" OnValidSubmit="AddMCustomer" FormName="create" Enhance>
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert" />
+            <ErrorAlert ErrorCode="@ErrorCode" />
+            <div class="mb-3">
+                <label for="name" class="form-label">顧客名:</label>
+                <InputText id="name" @bind-Value="MCustomer!.Name" class="form-control" aria-required="true" />
+                <ValidationMessage For="() => MCustomer.Name" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="remarks" class="form-label">備考:</label>
+                <InputText id="remarks" @bind-Value="MCustomer.Remarks" class="form-control" />
+                <ValidationMessage For="() => MCustomer.Remarks" class="text-danger" />
+            </div>
+            <button type="submit" class="btn btn-primary">登録</button>
+        </EditForm>
+    </div>
+</div>
+
+<div>
+    <a href="/mcustomers">一覧に戻る</a>
+</div>
+
+@code {
+    /// <summary>
+    /// 遷移元
+    /// </summary>
+    [SupplyParameterFromQuery]
+    private string? From { get; set; }
+    [SupplyParameterFromForm]
+    private InputModel? MCustomer { get; set; }
+
+    /// <summary>
+    /// エラーコード
+    /// </summary>
+    private ErrorCode? ErrorCode { get; set; }
+
+    protected override void OnInitialized() => MCustomer ??= new();
+
+    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task AddMCustomer()
+    {
+        ErrorCode = await InputModelService
+            .SaveInputModelAsync<InputModel, MCustomer>(MCustomer!);
+
+        if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+        {
+            NavigationService.NavigateToBack(
+                From, "mcustomerId", $"{MCustomer!.Id}", "mcustomers");
+        }
+    }
+}

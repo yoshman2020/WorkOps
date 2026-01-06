@@ -1,0 +1,83 @@
+﻿@page "/tactuals/details"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject WorkOps.Services.UserService UserService
+@inject NavigationManager NavigationManager
+
+<PageTitle>詳細</PageTitle>
+
+<h1>詳細</h1>
+
+<div>
+    <h2>実績</h2>
+    <hr />
+    @if (tactual is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <dl class="row">
+            <dt class="col-sm-2">担当者</dt>
+            <dd class="col-sm-10">@tactual.UserName</dd>
+            <dt class="col-sm-2">プロジェクト</dt>
+            <dd class="col-sm-10">@tactual.ProjectName</dd>
+            <dt class="col-sm-2">工程</dt>
+            <dd class="col-sm-10">@tactual.PhaseName</dd>
+            <dt class="col-sm-2">開始日時</dt>
+            <dd class="col-sm-10">@tactual.StartDate.ToString("yyyy/MM/dd HH:mm:ss")</dd>
+            <dt class="col-sm-2">終了日時</dt>
+            <dd class="col-sm-10">@tactual.EndDate.ToString("yyyy/MM/dd HH:mm:ss")</dd>
+            <dt class="col-sm-2">作業工数</dt>
+            <dd class="col-sm-10">@tactual.ManHour</dd>
+            <dt class="col-sm-2">作業内容</dt>
+            <dd class="col-sm-10">@tactual.Description</dd>
+            <dt class="col-sm-2">進捗率</dt>
+            <dd class="col-sm-10">@tactual.ProgressRate %</dd>
+            <dt class="col-sm-2">備考</dt>
+            <dd class="col-sm-10">@tactual.Remarks</dd>
+            <dt class="col-sm-2">作成日時</dt>
+            <dd class="col-sm-10">@tactual.CreatedAt</dd>
+            <dt class="col-sm-2">作成者</dt>
+            <dd class="col-sm-10">@tactual.CreatedUserName</dd>
+            <dt class="col-sm-2">更新日時</dt>
+            <dd class="col-sm-10">@tactual.UpdatedAt</dd>
+            <dt class="col-sm-2">更新者</dt>
+            <dd class="col-sm-10">@tactual.UpdatedUserName</dd>
+        </dl>
+        <div>
+            <a href="@($"/tactuals/edit?id={tactual.Id}")">編集</a> |
+            <a href="@($"/tplanactuals")">一覧に戻る</a>
+        </div>
+    }
+</div>
+
+@code {
+    private InputModel? tactual;
+
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        (tactual, var entity) = await InputModelService
+            .GetInputModelAsync<InputModel, TActual>(Id);
+
+        if (tactual is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+
+        tactual!.UserName = UserService.GetUserName(tactual.UserId);
+        await DbContext.Entry(entity!.MPhase)
+            .Reference(e => e.MProject)
+            .LoadAsync();
+        await DbContext.Entry(entity!)
+            .Reference(e => e.User)
+            .LoadAsync();
+        tactual!.ProjectName = entity!.MPhase.MProject.Name;
+        tactual!.PhaseName = entity!.MPhase.Name;
+    }
+}

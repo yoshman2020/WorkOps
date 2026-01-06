@@ -1,0 +1,88 @@
+﻿@page "/mprojects/delete"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@using WorkOps.Models.Errors
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject NavigationManager NavigationManager
+
+<PageTitle>削除</PageTitle>
+
+<h1>削除</h1>
+
+<p>削除します。よろしいですか？</p>
+<div>
+    <h2>プロジェクト</h2>
+    <hr />
+    @if (mproject is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <ErrorAlert ErrorCode="@ErrorCode" Args="@Args" />
+        <dl class="row">
+            <dt class="col-sm-2">顧客</dt>
+            <dd class="col-sm-10">@mproject.CustomerName</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">プロジェクト</dt>
+            <dd class="col-sm-10">@mproject.Name</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">備考</dt>
+            <dd class="col-sm-10">@mproject.Remarks</dd>
+        </dl>
+        <EditForm method="post" Model="mproject" OnValidSubmit="DeleteMProject" FormName="delete" Enhance>
+            <button type="submit" class="btn btn-danger" disabled="@(mproject is null)">削除</button> |
+            <a href="/mprojects">一覧に戻る</a>
+        </EditForm>
+    }
+</div>
+
+@code {
+    private InputModel? mproject;
+
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    /// <summary>
+    /// エラーコード
+    /// </summary>
+    private ErrorCode? ErrorCode { get; set; }
+
+    /// <summary>
+    /// エラーメッセージ引数
+    /// </summary>
+    private object[]? Args { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        (mproject, var entity) = await InputModelService
+            .GetInputModelAsync<InputModel, MProject>(Id);
+
+        if (mproject is null || entity is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+
+        await DbContext.Entry(entity!)
+            .Reference(e => e.MCustomer)
+            .LoadAsync();
+        mproject!.CustomerName = entity!.MCustomer.Name;
+    }
+
+    private async Task DeleteMProject()
+    {
+        var errorCode = await InputModelService
+            .DeleteInputModelAsync<MProject, MPhase, TReport>(Id);
+
+        if (errorCode == WorkOps.Models.Errors.ErrorCode.None)
+        {
+            NavigationManager.NavigateTo("/mprojects");
+            return;
+        }
+
+        Args = ["工程"];
+        ErrorCode = errorCode;
+    }
+}

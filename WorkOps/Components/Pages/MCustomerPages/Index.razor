@@ -1,0 +1,52 @@
+﻿@page "/mcustomers"
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using WorkOps.Models
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@rendermode InteractiveServer
+
+<PageTitle>顧客一覧</PageTitle>
+
+<h1>顧客一覧</h1>
+
+<p>
+    <a href="mcustomers/create">新規作成</a>
+</p>
+<p>
+    <InputTextOnInput @bind-Value="nameFilter" OnInputCallback="LoadDataAsync" Placeholder="顧客名で絞り込み" />
+</p>
+
+<QuickGrid Class="table" Items="InputModels" Pagination="pagination">
+    <DisplayPropertyColumn Property="mcustomer => mcustomer.Name" Title="顧客名" />
+    <DisplayPropertyColumn Property="mcustomer => mcustomer.Remarks" />
+    <TemplateColumn Context="mcustomer" Class="text-nowrap">
+        <a href="@($"mcustomers/edit?id={mcustomer.Id}")">編集</a> |
+        <a href="@($"mcustomers/details?id={mcustomer.Id}")">詳細</a> |
+        <a href="@($"mcustomers/delete?id={mcustomer.Id}")">削除</a>
+    </TemplateColumn>
+</QuickGrid>
+<Paginator State="pagination" />
+
+@code {
+    private string? nameFilter;
+    private IQueryable<InputModel>? InputModels;
+    PaginationState pagination = new PaginationState { ItemsPerPage = 20 };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        (InputModels, _) = await InputModelService
+            .GetInputModelsAsync<InputModel, MCustomer>();
+
+        if (!string.IsNullOrWhiteSpace(nameFilter))
+        {
+            InputModels = InputModels.Where(
+                im => im.Name.Contains(nameFilter));
+        }
+    }
+}

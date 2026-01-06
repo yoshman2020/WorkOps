@@ -1,0 +1,71 @@
+﻿@page "/mphases"
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using WorkOps.Models
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@rendermode InteractiveServer
+
+<PageTitle>工程一覧</PageTitle>
+
+<h1>工程一覧</h1>
+
+<p>
+    <a href="mphases/create">新規作成</a>
+</p>
+<p>
+    <InputTextOnInput @bind-Value="nameFilter" OnInputCallback="LoadDataAsync" Placeholder="工程名で絞り込み" />
+</p>
+
+<QuickGrid Class="table" Items="InputModels" Pagination="pagination">
+    <DisplayPropertyColumn Property="mproject => mproject.CustomerName" />
+    <DisplayPropertyColumn Property="mphase => mphase.ProjectName" />
+    <DisplayPropertyColumn Property="mphase => mphase.Name" Title="工程" />
+    <DisplayPropertyColumn Property="mphase => mphase.Remarks" />
+    <TemplateColumn Context="mphase">
+        <a href="@($"mphases/edit?id={mphase.Id}")">編集</a> |
+        <a href="@($"mphases/details?id={mphase.Id}")">詳細</a> |
+        <a href="@($"mphases/delete?id={mphase.Id}")">削除</a>
+    </TemplateColumn>
+</QuickGrid>
+<Paginator State="pagination" />
+
+@code {
+    private string? nameFilter;
+    private IQueryable<InputModel>? InputModels;
+    PaginationState pagination = new PaginationState { ItemsPerPage = 20 };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        (InputModels, var entities) = await InputModelService
+            .GetInputModelsAsync<InputModel, MPhase>();
+
+        if (!string.IsNullOrWhiteSpace(nameFilter))
+        {
+            InputModels = InputModels.Where(
+                im => im.Name.Contains(nameFilter));
+        }
+
+        entities.Include(e => e.MProject)
+            .ThenInclude(p => p.MCustomer);
+
+        foreach (var inputModel in InputModels)
+        {
+            var names = entities
+                .Where(e => e.Id == inputModel.Id)
+                .Select(e => new
+                {
+                    CustomerName = e.MProject.MCustomer.Name,
+                    ProjectName = e.MProject.Name
+                })
+                .FirstOrDefault();
+            inputModel.CustomerName = names?.CustomerName;
+            inputModel.ProjectName = names?.ProjectName;
+        }
+    }
+}

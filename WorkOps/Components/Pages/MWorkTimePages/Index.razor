@@ -1,0 +1,46 @@
+﻿@page "/mworktimes"
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using WorkOps.Models
+@using WorkOps.Data
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@rendermode InteractiveServer
+
+<PageTitle>勤務時間一覧</PageTitle>
+
+<h1>勤務時間一覧</h1>
+
+<p>
+    <a href="mworktimes/create">新規作成</a>
+</p>
+
+<QuickGrid Class="table" Items="InputModels">
+    <DisplayPropertyColumn Property="mworktime => mworktime.Name" Title="" Class="text-nowrap" />
+    <DisplayPropertyColumn Property="mworktime => mworktime.StartTime" Format="HH:mm" />
+    <DisplayPropertyColumn Property="mworktime => mworktime.EndTime" Format="HH:mm" />
+    <DisplayPropertyColumn Property="mworktime => mworktime.BreakStartTime" Format="HH:mm" />
+    <DisplayPropertyColumn Property="mworktime => mworktime.BreakEndTime" Format="HH:mm" />
+    <DisplayPropertyColumn Property="mworktime => mworktime.WorkedDurationString" />
+    <DisplayPropertyColumn Property="mworktime => mworktime.Remarks" />
+    <TemplateColumn Context="mworktime" Class="text-nowrap">
+        <a href="@($"mworktimes/edit?id={mworktime.Id}")">編集</a> |
+        <a href="@($"mworktimes/details?id={mworktime.Id}")">詳細</a> |
+        <a href="@($"mworktimes/delete?id={mworktime.Id}")">削除</a>
+    </TemplateColumn>
+</QuickGrid>
+
+@code {
+    private IQueryable<InputModel>? InputModels;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        (InputModels, var entities) = await InputModelService
+            .GetInputModelsAsync<InputModel, MWorkTime>();
+    }
+}

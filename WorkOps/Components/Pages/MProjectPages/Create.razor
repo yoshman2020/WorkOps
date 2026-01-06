@@ -1,0 +1,98 @@
+﻿@page "/mprojects/create"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@using WorkOps.Models.Errors
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject WorkOps.Services.NavigationService NavigationService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>新規作成</PageTitle>
+
+<h1>新規作成</h1>
+
+<h2>プロジェクト</h2>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <EditForm method="post" Model="MProject" OnValidSubmit="AddMProject" FormName="create" Enhance>
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert" />
+            <ErrorAlert ErrorCode="@ErrorCode" />
+            <div class="mb-3">
+                <label for="customer" class="form-label">顧客:</label>
+                <div class="input-group">
+                    <InputSelect id="customer" @bind-Value="MProject!.MCustomerId" class="form-select" aria-required="true">
+                        <option value="">-- 顧客選択 --</option>
+                        @foreach (var customer in DbContext.MCustomer.OrderBy(c => c.Name))
+                        {
+                            <option value="@customer.Id">@customer.Name</option>
+                        }
+                    </InputSelect>
+                    <button type="button" class="btn btn-primary" @onclick="OnBtnNewCustomerClick">新規</button>
+                </div>
+                <ValidationMessage For="() => MProject.MCustomerId" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="name" class="form-label">プロジェクト:</label>
+                <InputText id="name" @bind-Value="MProject!.Name" class="form-control" aria-required="true" />
+                <ValidationMessage For="() => MProject.Name" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="remarks" class="form-label">備考:</label>
+                <InputText id="remarks" @bind-Value="MProject.Remarks" class="form-control" />
+                <ValidationMessage For="() => MProject.Remarks" class="text-danger" />
+            </div>
+            <button type="submit" class="btn btn-primary">登録</button>
+        </EditForm>
+    </div>
+</div>
+
+<div>
+    <a href="/mprojects">一覧に戻る</a>
+</div>
+
+@code {
+    /// <summary>
+    /// 顧客ID
+    /// </summary>
+    [SupplyParameterFromQuery]
+    private int? MCustomerId { get; set; }
+    /// <summary>
+    /// 遷移元
+    /// </summary>
+    [SupplyParameterFromQuery]
+    private string? From { get; set; }
+    [SupplyParameterFromForm]
+    private InputModel? MProject { get; set; }
+
+    /// <summary>
+    /// エラーコード
+    /// </summary>
+    private ErrorCode? ErrorCode { get; set; }
+
+    protected override void OnInitialized()
+    {
+        MProject ??= new();
+        MProject.MCustomerId = MCustomerId;
+    }
+
+    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task AddMProject()
+    {
+        ErrorCode = await InputModelService
+            .SaveInputModelAsync<InputModel, MProject>(MProject!);
+
+        if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+        {
+            NavigationService.NavigateToBack(
+                    From, "mprojectid", $"{MProject!.Id}", "mprojects");
+        }
+    }
+
+    private void OnBtnNewCustomerClick(MouseEventArgs args)
+    {
+        NavigationService.NavigateToCreatet("mcustomers");
+    }
+}

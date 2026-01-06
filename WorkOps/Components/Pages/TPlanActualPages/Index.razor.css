@@ -1,0 +1,26 @@
+﻿::deep tr:nth-child(even) > td:nth-child(n+5) > a {
+    color: red !important;
+    text-decoration: none;
+}
+
+::deep tr:nth-child(odd) > td:nth-child(n+5) > a {
+    color: blue !important;
+    text-decoration: none;
+}
+
+::deep .sunday, ::deep .saturday, ::deep .holiday {
+    background-color: var(--bs-secondary-bg-subtle) !important;
+}
+
+::deep .project2 {
+    border-top: 2px solid black;
+}
+
+::deep .plan {
+    border-top: 2px dotted black;
+    height: 24px;
+}
+
+::deep .actual {
+    height: 24px;
+}

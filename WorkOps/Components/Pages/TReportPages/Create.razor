@@ -1,0 +1,193 @@
+﻿@page "/treports/create"
+@using Microsoft.EntityFrameworkCore
+@using System.Text
+@using WorkOps.Models
+@using WorkOps.Services
+@using WorkOps.Utils
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.UserService UserService
+@inject WorkOps.Services.InputModelService InputModelService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>新規作成</PageTitle>
+
+<h1>新規作成</h1>
+
+<h2>週間報告書</h2>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <EditForm method="post" Model="TReport" OnValidSubmit="AddTReport" FormName="create" Enhance>
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert" />
+            <div class="mb-3">
+                <label for="username" class="form-label">担当者:</label>
+                <InputText id="username" @bind-Value="TReport!.UserName" class="form-control-plaintext" readonly />
+                <ValidationMessage For="() => TReport.UserName" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="date" class="form-label">日付:</label>
+                <InputText id="date" @bind-Value="TReport.DateString" class="form-control-plaintext" readonly />
+                <ValidationMessage For="() => TReport.DateString" class="text-danger" />
+            </div>
+            @foreach (var detail in TReport.InputDetailModels)
+            {
+                <div class="mb-3">
+                    <label for="projectname" class="form-label">@detail.IndexNo プロジェクト名</label>
+                    <InputText id="projectname" @bind-Value="detail.ProjectName" class="form-control-plaintext" readonly />
+                    <ValidationMessage For="() => detail.ProjectName" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">@($"{detail.IndexNo}－１") 作業内容</label>
+                    <InputTextArea id="description" @bind-Value="detail.Description" class="form-control large-textarea" />
+                    <ValidationMessage For="() => detail.Description" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="problem" class="form-label">@($"{detail.IndexNo}－２") 課題・問題</label>
+                    <InputTextArea id="problem" @bind-Value="detail.Problem" class="form-control large-textarea" />
+                    <ValidationMessage For="() => detail.Problem" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="schedule" class="form-label">@($"{detail.IndexNo}－３") 今後の予定</label>
+                    <InputTextArea id="schedule" @bind-Value="detail.Schedule" class="form-control large-textarea" />
+                    <ValidationMessage For="() => detail.Schedule" class="text-danger" />
+                </div>
+            }
+            <div class="mb-3">
+                <label for="remarks" class="form-label">備考:</label>
+                <InputText id="remarks" @bind-Value="TReport.Remarks" class="form-control" />
+                <ValidationMessage For="() => TReport.Remarks" class="text-danger" />
+            </div>
+            <button type="submit" class="btn btn-primary">登録</button>
+        </EditForm>
+    </div>
+</div>
+
+<div>
+    <a href="/treports">一覧に戻る</a>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private string? UserId { get; set; }
+    [SupplyParameterFromQuery]
+    private DateOnly? Date { get; set; }
+
+    [SupplyParameterFromForm]
+    private InputModel? TReport { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        TReport ??= new();
+        Date ??= DateService.GetStartOfWeek(DateOnly.FromDateTime(DateTime.Now));
+
+        if (UserId is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+            return;
+        }
+
+        // 既存データの確認
+        var entity = await DbContext.TReport
+            .FirstOrDefaultAsync(m => m.UserId == UserId
+                && m.Date == Date);
+        if (entity != null)
+        {
+            NavigationManager.NavigateTo($"treports/edit?id={entity.Id}");
+            return;
+        }
+
+        TReport.UserId = UserId;
+        TReport.UserName = UserService.GetUserName(UserId!);
+        TReport.Date = Date!.Value;
+        var dateTo = Date.Value.ToDateTime(TimeOnly.MinValue).AddDays(6);
+        TReport.DateString = $"{Date:yyyy/MM/dd} ～ {dateTo:MM/dd}";
+        TReport.Name = TReport.DateString;
+
+        // 実績から初期値設定
+        TReport.InputDetailModels = DbContext.TActual
+            .Include(e => e.MPhase)
+            .ThenInclude(p => p.MProject)
+            .ThenInclude(c => c.MCustomer)
+            .Where(e => e.UserId == UserId
+                && Date <= DateOnly.FromDateTime(e.EndDate)
+                && e.StartDate < Date.Value
+                    .ToDateTime(TimeOnly.MinValue).AddDays(7)
+            )
+            .GroupBy(e => e.MPhase.MProjectId)
+            .AsEnumerable()
+            .Select((g, index) => new InputDetailModel
+            {
+                IndexNo = StringUtil.ConvertDigitsToFullWidth(index),
+                MProjectId = g.Key,
+                ProjectName =
+                    $"{g.Max(e => e.MPhase.MProject.MCustomer.Name)} {g.Max(e => e.MPhase.MProject.Name)}",
+                Description = GetDescription(g),
+            })
+            .ToList();
+        ;
+
+        TReport.InputDetailModels.Add(new InputDetailModel
+            {
+                IndexNo = StringUtil.ConvertDigitsToFullWidth(
+                    TReport.InputDetailModels.Count),
+                ProjectName = "その他",
+            });
+    }
+
+    /// <summary>
+    /// 作業内容文字列を取得
+    /// </summary>
+    /// <param name="actuals">実績</param>
+    /// <returns>作業内容文字列</returns>
+    private string GetDescription(IGrouping<int, TActual> actuals)
+    {
+        var descriptions = actuals
+            .Select(e => new { e.MPhaseId, e.MPhase.Name, e.Description });
+
+        if (!descriptions.Any())
+        {
+            return "";
+        }
+
+        var sb = new StringBuilder();
+        var currentId = 0;
+
+        foreach (var item in descriptions)
+        {
+            if (currentId != item.MPhaseId)
+            {
+                if (0 < sb.Length)
+                {
+                    sb.Append("\n");
+                }
+                sb.Append($"・{item.Name}");
+                currentId = item.MPhaseId;
+            }
+            sb.Append($"\n　{item.Description.Replace("\n", "\n　")}");
+        }
+
+        return sb.ToString();
+    }
+
+    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task AddTReport()
+    {
+        var entity = await InputModelService
+            .InputModelToEntity<InputModel, TReport>(TReport!);
+        if (entity is null || TReport is null)
+        {
+            return;
+        }
+        entity.TReportDetails = TReport.InputDetailModels
+           .Select(d =>
+               {
+                   var detailEntity = new TReportDetail(d);
+                   return detailEntity;
+               })
+           .ToList();
+        await InputModelService.SaveChangesAsync(entity);
+        NavigationManager.NavigateTo("/treports");
+    }
+}

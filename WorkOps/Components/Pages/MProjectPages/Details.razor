@@ -1,0 +1,64 @@
+﻿@page "/mprojects/details"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject NavigationManager NavigationManager
+
+<PageTitle>詳細</PageTitle>
+
+<h1>詳細</h1>
+
+<div>
+    <h2>プロジェクト</h2>
+    <hr />
+    @if (mproject is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <dl class="row">
+            <dt class="col-sm-2">顧客</dt>
+            <dd class="col-sm-10">@mproject.CustomerName</dd>
+            <dt class="col-sm-2">プロジェクト</dt>
+            <dd class="col-sm-10">@mproject.Name</dd>
+            <dt class="col-sm-2">備考</dt>
+            <dd class="col-sm-10">@mproject.Remarks</dd>
+            <dt class="col-sm-2">作成日時</dt>
+            <dd class="col-sm-10">@mproject.CreatedAt</dd>
+            <dt class="col-sm-2">作成者</dt>
+            <dd class="col-sm-10">@mproject.CreatedUserName</dd>
+            <dt class="col-sm-2">更新日時</dt>
+            <dd class="col-sm-10">@mproject.UpdatedAt</dd>
+            <dt class="col-sm-2">更新者</dt>
+            <dd class="col-sm-10">@mproject.UpdatedUserName</dd>
+        </dl>
+        <div>
+            <a href="@($"/mprojects/edit?id={mproject.Id}")">編集</a> |
+            <a href="@($"/mprojects")">一覧に戻る</a>
+        </div>
+    }
+</div>
+
+@code {
+    private InputModel? mproject;
+
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        (mproject, var entity) = await InputModelService
+            .GetInputModelAsync<InputModel, MProject>(Id);
+
+        if (mproject is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+
+        await DbContext.Entry(entity!)
+            .Reference(e => e.MCustomer)
+            .LoadAsync();
+        mproject!.CustomerName = entity!.MCustomer.Name;
+    }
+}

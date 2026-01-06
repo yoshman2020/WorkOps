@@ -1,0 +1,11 @@
+﻿::deep tr:has(.sunday, .saturday, .holiday)>td {
+    background-color: var(--bs-secondary-bg-subtle) !important;
+}
+
+::deep th {
+    text-align: right !important;
+}
+
+::deep td {
+    text-align: center !important;
+}

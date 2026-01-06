@@ -1,0 +1,105 @@
+﻿@page "/treports/delete"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@using WorkOps.Utils
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject WorkOps.Services.UserService UserService
+@inject NavigationManager NavigationManager
+
+<PageTitle>削除</PageTitle>
+
+<h1>削除</h1>
+
+<p>削除します。よろしいですか？</p>
+<div>
+    <h2>週間報告書</h2>
+    <hr />
+    @if (treport is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <dl class="row">
+            <dt class="col-sm-2">担当者</dt>
+            <dd class="col-sm-10">@treport.UserName</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">日付</dt>
+            <dd class="col-sm-10">@treport.Date</dd>
+        </dl>
+        @foreach (var detail in @treport.InputDetailModels)
+        {
+            <dl class="row">
+                <dt class="col-sm-2">@detail.IndexNo プロジェクト名</dt>
+                <dd class="col-sm-10">@detail.ProjectName</dd>
+            </dl>
+            <dl class="row">
+                <dt class="col-sm-2">@($"{detail.IndexNo}－１") 作業内容</dt>
+                <dd class="col-sm-10">@detail.Description</dd>
+            </dl>
+            <dl class="row">
+                <dt class="col-sm-2">@($"{detail.IndexNo}－２") 課題・問題</dt>
+                <dd class="col-sm-10">@detail.Problem</dd>
+            </dl>
+            <dl class="row">
+                <dt class="col-sm-2">@($"{detail.IndexNo}－３") 今後の予定</dt>
+                <dd class="col-sm-10">@detail.Schedule</dd>
+            </dl>
+        }
+        <dl class="row">
+            <dt class="col-sm-2">備考</dt>
+            <dd class="col-sm-10">@treport.Remarks</dd>
+        </dl>
+        <EditForm method="post" Model="treport" OnValidSubmit="DeleteTReport" FormName="delete" Enhance>
+            <button type="submit" class="btn btn-danger" disabled="@(treport is null)">削除</button> |
+            <a href="/treports">一覧に戻る</a>
+        </EditForm>
+    }
+</div>
+
+@code {
+    private InputModel? treport;
+
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        (treport, var entity) = await InputModelService
+            .GetInputModelAsync<InputModel, TReport>(Id);
+
+        if (treport is null || entity is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+
+        treport!.DateString =
+            $"{treport.Date:yyyy/MM/dd} ～ {treport.Date.AddDays(6):MM/dd}";
+        treport!.UserName = UserService.GetUserName(treport.UserId);
+        await DbContext.Entry(entity!)
+            .Collection(e => e.TReportDetails)
+            .LoadAsync();
+
+        treport.InputDetailModels = entity!.TReportDetails
+            .Select((d, index) =>
+                {
+                    DbContext.Entry(d)
+                        .Reference(e => e.MProject)
+                        .Load();
+                    var detailModel = new InputDetailModel();
+                    PropertyUtil.CopyProperties(d, detailModel);
+                    detailModel.IndexNo =
+                        StringUtil.ConvertDigitsToFullWidth(index);
+                    detailModel.ProjectName = d.MProject?.Name ?? "その他";
+                    return detailModel;
+                })
+            .ToList();
+    }
+
+    private async Task DeleteTReport()
+    {
+        await InputModelService.DeleteInputModelAsync<TReport>(Id);
+        NavigationManager.NavigateTo("/treports");
+    }
+}

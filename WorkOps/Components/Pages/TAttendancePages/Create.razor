@@ -1,0 +1,152 @@
+﻿@page "/tattendances/create"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@using WorkOps.Models.Errors
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.UserService UserService
+@inject WorkOps.Services.InputModelService InputModelService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>新規作成</PageTitle>
+
+<h1>新規作成</h1>
+
+<h2>出退勤</h2>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <EditForm method="post" Model="TAttendance" OnValidSubmit="AddTAttendance" FormName="create" Enhance>
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert" />
+            <ErrorAlert ErrorCode="@ErrorCode" />
+            <div class="mb-3">
+                <label for="username" class="form-label">担当者:</label>
+                <InputText id="username" @bind-Value="TAttendance!.UserName" class="form-control-plaintext" readonly />
+                <ValidationMessage For="() => TAttendance.UserName" class="text-danger" />
+            </div>
+             <div class="mb-3">
+                <label for="date" class="form-label">日付:</label>
+                <InputDate Type="InputDateType.Date" id="date" @bind-Value="TAttendance.Date" class="form-control-plaintext" readonly />
+                <ValidationMessage For="() => TAttendance.Date" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="starttime" class="form-label">開始時間:</label>
+                <InputDate Type="InputDateType.Time" id="starttime" @bind-Value="TAttendance.StartTime" class="form-control" />
+                <ValidationMessage For="() => TAttendance.StartTime" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="endtime" class="form-label">終了時間:</label>
+                <InputDate Type="InputDateType.Time" id="endtime" @bind-Value="TAttendance.EndTime" class="form-control" />
+                <ValidationMessage For="() => TAttendance.EndTime" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="paidleavedurationTime" class="form-label">有給時間:</label>
+                <InputDate Type="InputDateType.Time" id="paidleavedurationTime" @bind-Value="TAttendance.PaidLeaveDurationTime" class="form-control" />
+                <ValidationMessage For="() => TAttendance.PaidLeaveDurationTime" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="workeddurationtime" class="form-label">勤務時間:</label>
+                <InputDate Type="InputDateType.Time" id="workeddurationtime" @bind-Value="TAttendance.WorkedDurationTime" class="form-control" />
+                <ValidationMessage For="() => TAttendance.WorkedDurationTime" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="overtimedurationtime" class="form-label">時間外:</label>
+                <InputDate Type="InputDateType.Time" id="overtimedurationtime" @bind-Value="TAttendance.OvertimeDurationTime" class="form-control" />
+                <ValidationMessage For="() => TAttendance.OvertimeDurationTime" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="remarks" class="form-label">備考:</label>
+                <InputText id="remarks" @bind-Value="TAttendance.Remarks" class="form-control" />
+                <ValidationMessage For="() => TAttendance.Remarks" class="text-danger" />
+            </div>
+            <button type="submit" class="btn btn-primary">登録</button>
+        </EditForm>
+    </div>
+</div>
+
+<div>
+    <a href="/tattendances?userid=@UserId">一覧に戻る</a>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private string? UserId { get; set; }
+    [SupplyParameterFromQuery]
+    private DateOnly? Date { get; set; }
+
+    [SupplyParameterFromForm]
+    private InputModel? TAttendance { get; set; }
+
+    /// <summary>
+    /// エラーコード
+    /// </summary>
+    private ErrorCode? ErrorCode { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        TAttendance ??= new();
+
+        // 既存データの確認
+        var entity = await DbContext.TAttendance
+            .FirstOrDefaultAsync(m => m.UserId == UserId
+                && m.Date == Date);
+        if (entity != null)
+        {
+            NavigationManager.NavigateTo($"tattendances/edit?id={entity.Id}");
+            return;
+        }
+
+        TAttendance.UserName = UserService.GetUserName(UserId!);
+        TAttendance.Date = Date ?? DateOnly.FromDateTime(DateTime.Now);
+        // ユーザーの勤務時間
+        var workTime = DbContext.Users
+            .Where(u => u.Id == UserId)
+            .Select(user => new { user.MWorkTime, user })
+            .FirstOrDefault();
+        if (workTime == null || workTime.MWorkTime == null)
+        {
+            return;
+        }
+        // DateTime型の日付
+        var dateDate = Date?.ToDateTime(TimeOnly.MinValue);
+        TAttendance.UserName = workTime.user.FullName;
+        // 開始日
+        var stDate = dateDate ?? DateTime.Now;
+        TAttendance.StartTime = stDate + workTime.MWorkTime.StartTime.ToTimeSpan();
+        TAttendance.EndTime = stDate + workTime.MWorkTime.EndTime.ToTimeSpan();
+        TAttendance.PaidLeaveDurationTime = dateDate;
+        TAttendance.WorkedDurationTime = dateDate + workTime.MWorkTime.WorkedDuration;
+        TAttendance.OvertimeDurationTime = dateDate;
+        TAttendance.Name = stDate.ToString("yyyy/MM/dd(ddd)");
+    }
+
+    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task AddTAttendance()
+    {
+        if (UserId is null || TAttendance is null || Date is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+            return;
+        }
+
+        TAttendance!.UserId = UserId!;
+        TAttendance!.Date = Date!.Value;
+        TAttendance!.PaidLeaveDuration =
+            TAttendance!.PaidLeaveDurationTime?.TimeOfDay;
+        TAttendance!.WorkedDuration =
+            TAttendance.WorkedDurationTime?.TimeOfDay;
+        TAttendance!.OvertimeDuration =
+            TAttendance.OvertimeDurationTime?.TimeOfDay;
+        TAttendance!.IsModified = true;
+
+        ErrorCode = await InputModelService
+            .SaveInputModelAsync<InputModel, TAttendance>(TAttendance!);
+
+        if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+        {
+            NavigationManager.NavigateTo($"/tattendances?userid={UserId}");
+        }
+    }
+}

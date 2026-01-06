@@ -1,0 +1,132 @@
+﻿@page "/mprojects/edit"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@using WorkOps.Models.Errors
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject WorkOps.Services.NavigationService NavigationService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>編集</PageTitle>
+
+<h1>編集</h1>
+
+<h2>プロジェクト</h2>
+<hr />
+@if (MProject is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4">
+            <EditForm method="post" Model="MProject" OnValidSubmit="UpdateMProject" FormName="edit" Enhance>
+                <DataAnnotationsValidator />
+                <ValidationSummary role="alert" />
+                <ErrorAlert ErrorCode="@ErrorCode" />
+                <div class="mb-3">
+                    <label for="customer" class="form-label">顧客:</label>
+                    <div class="input-group">
+                        <InputSelect id="customer" @bind-Value="MProject.MCustomerId" class="form-select" aria-required="true">
+                            <option value="">-- 顧客選択 --</option>
+                            @foreach (var customer in DbContext.MCustomer.OrderBy(c => c.Name))
+                            {
+                                <option value="@customer.Id">@customer.Name</option>
+                            }
+                        </InputSelect>
+                        <button type="button" class="btn btn-primary" @onclick="OnBtnNewCustomerClick">新規</button>
+                    </div>
+                    <ValidationMessage For="() => MProject.MCustomerId" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="name" class="form-label">プロジェクト:</label>
+                    <InputText id="name" @bind-Value="MProject.Name" class="form-control" aria-required="true" />
+                    <ValidationMessage For="() => MProject.Name" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="remarks" class="form-label">備考:</label>
+                    <InputText id="remarks" @bind-Value="MProject.Remarks" class="form-control" />
+                    <ValidationMessage For="() => MProject.Remarks" class="text-danger" />
+                </div>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<div>
+    <a href="/mprojects">一覧に戻る</a>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+    /// <summary>
+    /// 顧客ID
+    /// </summary>
+    [SupplyParameterFromQuery]
+    private int? MCustomerId { get; set; }
+
+    [SupplyParameterFromForm]
+    private InputModel? MProject { get; set; }
+
+    /// <summary>
+    /// エラーコード
+    /// </summary>
+    private ErrorCode? ErrorCode { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        (MProject, _) = await InputModelService
+            .GetInputModelAsync<InputModel, MProject>(Id);
+
+        if (MProject is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+
+        if (MCustomerId != null && MCustomerId != 0)
+        {
+            MProject!.MCustomerId = MCustomerId;
+        }
+    }
+
+    // To protect from overposting attacks, enable the specific properties you want to bind to.
+    // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task UpdateMProject()
+    {
+        try
+        {
+            ErrorCode = await InputModelService
+                .SaveInputModelAsync<InputModel, MProject>(MProject!, Id);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!MProjectExists(MProject!.Id))
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+            else
+            {
+                throw;
+            }
+        }
+
+        if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+        {
+            NavigationManager.NavigateTo("/mprojects");
+        }
+    }
+
+    private bool MProjectExists(int id)
+    {
+        return DbContext.MProject.Any(e => e.Id == id);
+    }
+
+    private void OnBtnNewCustomerClick(MouseEventArgs args)
+    {
+        NavigationService.NavigateToCreatet("mcustomers");
+    }
+}

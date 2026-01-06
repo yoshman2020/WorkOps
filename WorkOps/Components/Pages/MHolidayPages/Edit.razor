@@ -1,0 +1,107 @@
+﻿@page "/mholidays/edit"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@using WorkOps.Models.Errors
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>編集</PageTitle>
+
+<h1>編集</h1>
+
+<h2>休日・祝祭日</h2>
+<hr />
+@if (MHoliday is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4">
+            <EditForm method="post" Model="MHoliday" OnValidSubmit="UpdateMHoliday" FormName="edit" Enhance>
+                <DataAnnotationsValidator />
+                <ValidationSummary role="alert"/>
+                <ErrorAlert ErrorCode="@ErrorCode" />
+                <div class="mb-3">
+                    <label for="date" class="form-label">日付:</label>
+                    <InputDate id="date" @bind-Value="MHoliday.Date" class="form-control" />
+                    <ValidationMessage For="() => MHoliday.Date" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="name" class="form-label">休日・祝祭日名:</label>
+                    <InputText id="name" @bind-Value="MHoliday.Name" class="form-control" aria-required="true"/>
+                    <ValidationMessage For="() => MHoliday.Name" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="remarks" class="form-label">備考:</label>
+                    <InputText id="remarks" @bind-Value="MHoliday.Remarks" class="form-control" />
+                    <ValidationMessage For="() => MHoliday.Remarks" class="text-danger" />
+                </div>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<div>
+    <a href="/mholidays">一覧に戻る</a>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    [SupplyParameterFromForm]
+    private InputModel? MHoliday { get; set; }
+
+    /// <summary>
+    /// エラーコード
+    /// </summary>
+    private ErrorCode? ErrorCode { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        (MHoliday, _) = await InputModelService
+            .GetInputModelAsync<InputModel, MHoliday>(Id);
+
+        if (MHoliday is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+    }
+
+    // To protect from overposting attacks, enable the specific properties you want to bind to.
+    // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task UpdateMHoliday()
+    {
+        try
+        {
+            ErrorCode = await InputModelService
+                .SaveInputModelAsync<InputModel, MHoliday>(MHoliday!, Id);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!MHolidayExists(MHoliday!.Id))
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+            else
+            {
+                throw;
+            }
+        }
+
+        if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+        {
+            NavigationManager.NavigateTo("/mholidays");
+        }
+    }
+
+    private bool MHolidayExists(int id)
+    {
+        return DbContext.MHoliday.Any(e => e.Id == id);
+    }
+}

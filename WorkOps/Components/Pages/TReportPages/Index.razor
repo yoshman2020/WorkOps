@@ -1,0 +1,449 @@
+﻿@page "/treports"
+@using DocumentFormat.OpenXml
+@using DocumentFormat.OpenXml.Packaging
+@using DocumentFormat.OpenXml.Wordprocessing
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using Microsoft.Extensions.Options
+@using WorkOps.Data
+@using WorkOps.Models
+@using WorkOps.Services
+@using WorkOps.Utils
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject WorkOps.Services.UserService UserService
+@inject IOptions<AppSettings> AppSettings
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>週間報告書</PageTitle>
+
+<h1>週間報告書</h1>
+
+<form action="/treports" data-enhance data-parmanent>
+    <div class="row">
+        <div class="col-auto">
+            <select id="user" @bind="UserId" class="form-select" aria-required="true">
+                @foreach (var user in Users)
+                {
+                    <option value="@user.Id">@user.FullName</option>
+                }
+            </select>
+        </div>
+        <div class="col-auto d-flex">
+            <input type="month" id="month" @bind="Month" class="form-control" />
+        </div>
+        <div class="col-auto">
+            <button id="prev" @onclick="() => ChangeMonth(-1)" class="btn btn-primary">
+                &lt;
+            </button>
+            <button id="current" @onclick="() => ChangeMonth(0)" class="btn btn-primary">
+                &cir;
+            </button>
+            <button id="prev" @onclick="() => ChangeMonth(1)" class="btn btn-primary">
+                &gt;
+            </button>
+        </div>
+        <div class="col">
+            <button id="excel" @onclick="DownloadWordAsync" class="btn btn-primary">Word出力</button>
+        </div>
+    </div>
+</form>
+
+<p>
+    <a href="treports/create">新規作成</a>
+</p>
+
+<QuickGrid Class="table" Items="InputModels!.AsQueryable()">
+    <DisplayPropertyColumn Property="treport => treport.DateString" />
+    <DisplayPropertyColumn Property="treport => treport.Description" />
+    <TemplateColumn Context="treport">
+        <a href="@GetEditOrCreateUrl(treport)">編集</a> |
+        @if (treport.Id != 0)
+        {
+            <a href="@($"treports/details?id={treport.Id}")">詳細</a> @: |
+            <a href="@($"treports/delete?id={treport.Id}")">削除</a>
+        }
+        else
+        {
+            <span class="text-muted">詳細</span><span> |</span>
+            <span class="text-muted">削除</span>
+        }
+    </TemplateColumn>
+</QuickGrid>
+<script src="js/download.js"></script>
+
+@code {
+    private string _userId = string.Empty;
+    [SupplyParameterFromQuery]
+    private string UserId
+    {
+        get => _userId;
+        set
+        {
+            if (_userId != value)
+            {
+                _userId = value;
+                LoadSelectedData();
+            }
+        }
+    }
+    private DateOnly _month;
+    private DateOnly Month
+    {
+        get => _month;
+        set
+        {
+            if (_month != value)
+            {
+                _month = value;
+                LoadSelectedData();
+            }
+        }
+    }
+    private List<InputModel>? InputModels;
+    private List<ApplicationUser> Users = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Users = await UserService.GetUsersAsync();
+        UserId = await UserService.GetUserIdAsync(Users, UserId);
+        if (_month == default || _month == DateOnly.MinValue)
+        {
+            // 未設定の場合は当月
+            var today = DateTime.Today;
+            Month = new DateOnly(today.Year, today.Month, 1);
+        }
+
+        LoadSelectedData();
+    }
+
+    /// <summary>
+    /// データ読み込み
+    /// </summary>
+    /// <returns></returns>
+    private void LoadSelectedData()
+    {
+        InputModels = LoadData(_month);
+    }
+
+    /// <summary>
+    /// データ読み込み
+    /// </summary>
+    /// <param name="month">月</param>
+    /// <returns></returns>
+    private List<InputModel>? LoadData(DateOnly month)
+    {
+        List<InputModel> inputModels = [];
+        try
+        {
+            if (month == default　|| month == DateOnly.MinValue)
+            {
+                return inputModels;
+            }
+
+            // 月曜日の一覧を取得
+            var mondays = GetMondays(month);
+
+            // 最初の月曜
+            var firstMonday = mondays.Min();
+
+            // 最終日の次の月曜
+            var nextMonday = mondays.Max().AddDays(7);
+
+            //  週報
+            var treports = DbContext.TReport
+                .Include(e => e.TReportDetails)
+                .ThenInclude(td => td.MProject)
+                .Where(e => e.UserId == UserId
+                    && firstMonday <= e.Date
+                    && e.Date < nextMonday
+                );
+            ;
+
+            inputModels = mondays.GroupJoin(treports,
+                monday => monday,
+                treport => treport.Date,
+                (monday, treports) => new InputModel
+                {
+                    Id = treports.FirstOrDefault()?.Id ?? 0,
+                    Date = monday,
+                    DateString = $"{monday:MM/dd} ～ {monday.AddDays(6):MM/dd}",
+                    Description = string.Join(',',
+                        treports.SelectMany(t => t.TReportDetails)
+                        .Select(x => $"{x.MProject?.Name ?? "その他"}")),
+                })
+                .ToList();
+
+            return inputModels;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e.Message);
+            return inputModels;
+        }
+    }
+
+    /// <summary>
+    /// 詳細データ読み込み
+    /// </summary>
+    /// <param name="id">ID</param>
+    /// <returns>詳細データ</returns>
+    private async Task<InputModel?> LoadDataDetailsAsync(int id)
+    {
+        var (treport, entity) = await InputModelService
+            .GetInputModelAsync<InputModel, TReport>(id);
+
+        if (treport is null || entity is null)
+        {
+            return null;
+        }
+
+        treport!.DateString =
+            $"{treport.Date:yyyy/MM/dd} ～ {treport.Date.AddDays(6):MM/dd}";
+        treport!.UserName = UserService.GetUserName(treport.UserId);
+        await DbContext.Entry(entity!)
+            .Collection(e => e.TReportDetails)
+            .LoadAsync();
+
+        treport.InputDetailModels = entity!.TReportDetails
+            .Select((d, index) =>
+                {
+                    DbContext.Entry(d)
+                        .Reference(e => e.MProject)
+                        .Load();
+                    var detailModel = new InputDetailModel();
+                    PropertyUtil.CopyProperties(d, detailModel);
+                    detailModel.IndexNo =
+                        StringUtil.ConvertDigitsToFullWidth(index);
+                    detailModel.ProjectName = d.MProject?.Name ?? "その他";
+                    return detailModel;
+                })
+            .ToList();
+        return treport;
+    }
+
+    /// <summary>
+    /// 月を変更する
+    /// </summary>
+    /// <param name="offset">オフセット。0の場合は当月</param>
+    private void ChangeMonth(int offset)
+    {
+        DateService.ChangeMonth(offset, ref _month);
+        LoadSelectedData();
+    }
+
+    /// <summary>
+    /// その月の月曜日の一覧を取得する
+    /// </summary>
+    /// <param name="month">月</param>
+    /// <returns>月曜日の一覧</returns>
+    public List<DateOnly> GetMondays(DateOnly month)
+    {
+        var mondays = new List<DateOnly>();
+
+        // 月の1日の日付を作成
+        DateTime firstDayOfMonth = new DateTime(month.Year, month.Month, 1);
+
+        // 最初の月曜日を探す
+        int daysToMonday = (
+            (int)DayOfWeek.Monday - (int)firstDayOfMonth.DayOfWeek + 7) % 7;
+
+        // 最初の月曜日の日付
+        DateTime firstMonday = firstDayOfMonth.AddDays(daysToMonday);
+
+        // 月曜日をリストに追加
+        for (DateTime monday = firstMonday; monday.Month == month.Month;
+            monday = monday.AddDays(7))
+        {
+            mondays.Add(DateOnly.FromDateTime(monday));
+        }
+
+        return mondays;
+    }
+
+    /// <summary>
+    /// 更新または新規作成画面遷移URL
+    /// </summary>
+    /// <param name="treport">行</param>
+    /// <returns>更新または新規作成画面遷移URL</returns>
+    private string GetEditOrCreateUrl(InputModel treport)
+    {
+        if (treport.Id == 0)
+        {
+            return "treports/create?userid=" + UserId
+            + "&date=" + treport.Date;
+        }
+        return "treports/edit?id=" + treport.Id;
+    }
+
+    private async Task DownloadWordAsync()
+    {
+        if (InputModels == null || InputModels.Count == 0)
+        {
+            return;
+        }
+
+        try{
+            var userName = UserService.GetUserName(UserId);
+            var fileName = $"週間報告書{Month:yyyy-MM}({userName}).docx";
+
+            var ms = new MemoryStream();
+            try
+            {
+                using (var doc = WordprocessingDocument.Create(
+                    ms, WordprocessingDocumentType.Document))
+                {
+                    // Add a main document part. 
+                    MainDocumentPart mainPart = doc.AddMainDocumentPart();
+
+                    // Create the document structure and add some text.
+                    mainPart.Document = new Document();
+                    Body body = mainPart.Document.AppendChild(new Body());
+
+                    foreach (var (id, index)
+                        in InputModels!.Select((x, i) => (x.Id, i)))
+                    {
+                        var inputModel = await LoadDataDetailsAsync(id);
+                        if (inputModel is null)
+                        {
+                            continue;
+                        }
+                        var indexNo = StringUtil.ConvertDigitsToFullWidth(index);
+
+                        List<string> headerTexts = [
+                            $"{AppSettings.Value.CompanyName}　週間報告書　{Month:MM}月－{indexNo}",
+                            $"氏名：{userName}　期間：{inputModel.Date:yyyy/MM/dd} ～ {inputModel.Date.AddDays(6):yyyy/MM/dd}"
+                        ];
+
+                        var bodyParagraphs = CreateBodyParagraph(inputModel);
+
+                        AddSection(mainPart, body, headerTexts, bodyParagraphs,
+                            index != InputModels.Count);
+                    }
+                }
+
+                ms.Position = 0;
+                using var streamRef = new DotNetStreamReference(stream: ms);
+
+                await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+            }
+            catch(Exception e)
+            {
+                var message = e.Message;
+            }
+            finally
+            {
+                ms.Dispose();
+            }
+        }
+        catch(Exception e)
+        {
+            var message = e.Message;
+        }
+    }
+
+    static void AddSection(MainDocumentPart mainPart, Body body,
+        List<string> headerTexts, List<Paragraph> bodyParagraphs, bool isBreak)
+    {
+        // 1. ヘッダーパーツの作成とテキスト設定
+        HeaderPart headerPart = mainPart.AddNewPart<HeaderPart>();
+        string headerId = mainPart.GetIdOfPart(headerPart);
+        headerPart.Header = new Header(
+            headerTexts.Select(t => new Paragraph(new Run(new Text(t))))
+        );
+
+        // 2. 本文の追加
+        foreach (var bodyParagraph in bodyParagraphs)
+        {
+            body.AppendChild(bodyParagraph);
+        }
+
+        // 3. セクション設定の構築
+        SectionProperties secProps = new SectionProperties();
+        secProps.AppendChild(new HeaderReference()
+        {
+            Type = HeaderFooterValues.Default, Id = headerId
+        });
+
+        if (isBreak)
+        {
+            // 「次のページから開始」を設定（改ページ）
+            secProps.AppendChild(new SectionType()
+            {
+                Val = SectionMarkValues.NextPage
+            });
+
+            // 文中のセクション区切りは、段落のプロパティ（ParagraphProperties）に含める
+            Paragraph lastPara = new Paragraph();
+            lastPara.AppendChild(new ParagraphProperties(secProps));
+            body.AppendChild(lastPara);
+        }
+        else
+        {
+            // 最終セクションはBodyの直下に追加する
+            body.AppendChild(secProps);
+        }
+    }
+
+    /// <summary>
+    /// 本文作成
+    /// </summary>
+    /// <param name="inputModel">入力モデル</param>
+    /// <returns>本文</returns>
+    private List<Paragraph> CreateBodyParagraph(InputModel inputModel)
+    {
+        var paragraphs = new List<Paragraph>();
+
+        if (inputModel is null || inputModel.InputDetailModels is null
+            || inputModel.InputDetailModels.Count == 0)
+        {
+            return paragraphs;
+        }
+
+        foreach (var (inputDetailModel, index) in inputModel.InputDetailModels
+            .Select((x, i) => (x, i)))
+        {
+            var indexNo = StringUtil.ConvertDigitsToFullWidth(index);
+            AddLines($"{indexNo}　{inputDetailModel.ProjectName}", paragraphs, false);
+            AddLines($"{indexNo}－１　作業内容", paragraphs, false);
+            AddLines(inputDetailModel.Description, paragraphs, true);
+            AddLines($"", paragraphs, false);
+            AddLines($"{indexNo}－２　課題・問題", paragraphs, false);
+            AddLines($"{inputDetailModel.Problem}", paragraphs, true);
+            AddLines($"", paragraphs, false);
+            AddLines($"{indexNo}－３　今後の予定", paragraphs, false);
+            AddLines($"{inputDetailModel.Schedule}", paragraphs, true);
+        }
+        AddLines($"", paragraphs, false);
+        AddLines($"◆残業時間", paragraphs, false);
+        AddLines($"1. 合計 0H", paragraphs, true);
+
+        return paragraphs;
+    }
+
+    /// <summary>
+    /// 改行で分割して追加
+    /// </summary>
+    /// <param name="text">テキスト</param>
+    /// <param name="paragraphs">章</param>
+    /// <param name="isIndent">インデントあり</param>
+    private void AddLines(string text, List<Paragraph> paragraphs,
+        bool isIndent)
+    {
+        var lines = text.Split('\n').Select(line =>
+            new Paragraph(
+                new ParagraphProperties(
+                    new Indentation() { Left = isIndent ? "360" : "0" }
+                ),
+                new Run(
+                    new Text($"{line}")
+            )));
+        foreach(var line in lines)
+        {
+            paragraphs.Add(line);
+        }        
+    }
+}

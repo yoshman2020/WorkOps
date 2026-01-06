@@ -1,0 +1,160 @@
+﻿@page "/treports/edit"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@using WorkOps.Utils
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject WorkOps.Services.UserService UserService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>編集</PageTitle>
+
+<h1>編集</h1>
+
+<h2>週間報告書</h2>
+<hr />
+@if (TReport is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4">
+            <EditForm method="post" Model="TReport" OnValidSubmit="UpdateTReport" FormName="edit" Enhance>
+                <DataAnnotationsValidator />
+                <ValidationSummary role="alert" />
+                <div class="mb-3">
+                    <label for="username" class="form-label">担当者:</label>
+                    <InputText id="username" @bind-Value="TReport!.UserName" class="form-control-plaintext" readonly />
+                    <ValidationMessage For="() => TReport.UserName" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="datestring" class="form-label">日付:</label>
+                    <InputText id="datestring" @bind-Value="TReport.DateString" class="form-control-plaintext" />
+                    <ValidationMessage For="() => TReport.DateString" class="text-danger" />
+                </div>
+                @foreach (var detail in TReport.InputDetailModels)
+                {
+                    <div class="mb-3">
+                        <label for="projectname" class="form-label">@detail.IndexNo プロジェクト名</label>
+                        <InputText id="projectname" @bind-Value="detail.ProjectName" class="form-control-plaintext" readonly />
+                        <ValidationMessage For="() => detail.ProjectName" class="text-danger" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">@($"{detail.IndexNo}－１") 作業内容</label>
+                        <InputTextArea id="description" @bind-Value="detail.Description" class="form-control large-textarea" />
+                        <ValidationMessage For="() => detail.Description" class="text-danger" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="problem" class="form-label">@($"{detail.IndexNo}－２") 課題・問題</label>
+                        <InputTextArea id="problem" @bind-Value="detail.Problem" class="form-control large-textarea" />
+                        <ValidationMessage For="() => detail.Problem" class="text-danger" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="schedule" class="form-label">@($"{detail.IndexNo}－３") 今後の予定</label>
+                        <InputTextArea id="schedule" @bind-Value="detail.Schedule" class="form-control large-textarea" />
+                        <ValidationMessage For="() => detail.Schedule" class="text-danger" />
+                    </div>
+                }
+                <div class="mb-3">
+                    <label for="remarks" class="form-label">備考:</label>
+                    <InputText id="remarks" @bind-Value="TReport.Remarks" class="form-control" />
+                    <ValidationMessage For="() => TReport.Remarks" class="text-danger" />
+                </div>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<div>
+    <a href="/treports">一覧に戻る</a>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    [SupplyParameterFromForm]
+    private InputModel? TReport { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        (TReport, var entity) = await InputModelService
+            .GetInputModelAsync<InputModel, TReport>(Id);
+
+        if (TReport is null || entity is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+
+        TReport!.DateString =
+            $"{TReport.Date:yyyy/MM/dd} ～ {TReport.Date.AddDays(6):MM/dd}";
+        TReport!.UserName = UserService.GetUserName(TReport.UserId);
+        await DbContext.Entry(entity!)
+            .Collection(e => e.TReportDetails)
+            .LoadAsync();
+
+        TReport.InputDetailModels = entity!.TReportDetails
+            .Select((d, index) =>
+                {
+                    DbContext.Entry(d)
+                        .Reference(e => e.MProject)
+                        .Load();
+                    var detailModel = new InputDetailModel();
+                    PropertyUtil.CopyProperties(d, detailModel);
+                    detailModel.IndexNo =
+                        StringUtil.ConvertDigitsToFullWidth(index);
+                    detailModel.ProjectName = d.MProject?.Name ?? "その他";
+                    return detailModel;
+                })
+            .ToList();
+    }
+
+    // To protect from overposting attacks, enable the specific properties you want to bind to.
+    // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task UpdateTReport()
+    {
+        try
+        {
+            var entity = await InputModelService
+                .InputModelToEntity<InputModel, TReport>(TReport!, Id);
+            if (entity is null || TReport is null)
+            {
+                return;
+            }
+            await DbContext.Entry(entity)
+                .Collection(e => e.TReportDetails)
+                .LoadAsync();
+
+            foreach (var detailEntity in entity.TReportDetails)
+            {
+                var detailModel = TReport.InputDetailModels
+                    .Where(d => d.Id == detailEntity.Id)
+                    .FirstOrDefault();
+                PropertyUtil.CopyProperties(detailModel, detailEntity);
+            }
+            await InputModelService.SaveChangesAsync(entity);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!TReportExists(TReport!.Id))
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+            else
+            {
+                throw;
+            }
+        }
+
+        NavigationManager.NavigateTo("/treports");
+    }
+
+    private bool TReportExists(int id)
+    {
+        return DbContext.TReport.Any(e => e.Id == id);
+    }
+}

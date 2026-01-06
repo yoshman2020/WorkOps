@@ -1,0 +1,131 @@
+﻿@page "/tattendances/delete"
+@using Microsoft.EntityFrameworkCore
+@using WorkOps.Models
+@using WorkOps.Models.Errors
+@inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
+@inject WorkOps.Services.UserService UserService
+@inject NavigationManager NavigationManager
+
+<PageTitle>削除</PageTitle>
+
+<h1>削除</h1>
+
+<p>削除します。よろしいですか？</p>
+<div>
+    <h2>出退勤</h2>
+    <hr />
+    @if (tattendance is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <ErrorAlert ErrorCode="@ErrorCode" />
+        <dl class="row">
+            <dt class="col-sm-2">担当者</dt>
+            <dd class="col-sm-10">@tattendance.UserName</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">日付</dt>
+            <dd class="col-sm-10">@tattendance.Date</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">開始時間</dt>
+            <dd class="col-sm-10">@tattendance.StartTime?.ToString("HH:mm")</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">終了時間</dt>
+            <dd class="col-sm-10">@tattendance.EndTime?.ToString("HH:mm")</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">有給時間</dt>
+            <dd class="col-sm-10">@tattendance.PaidLeaveDurationTime?.ToString("HH:mm")</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">勤務時間</dt>
+            <dd class="col-sm-10">@tattendance.WorkedDurationTime?.ToString("HH:mm")</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">時間外</dt>
+            <dd class="col-sm-10">@tattendance.OvertimeDurationTime?.ToString("HH:mm")</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">備考</dt>
+            <dd class="col-sm-10">@tattendance.Remarks</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">ログイン</dt>
+            <dd class="col-sm-10">@tattendance.LoginTime?.ToString("HH:mm")</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">ログアウト</dt>
+            <dd class="col-sm-10">@tattendance.LogoutTime?.ToString("HH:mm")</dd>
+        </dl>
+        <EditForm method="post" Model="tattendance" OnValidSubmit="DeleteTAttendance" FormName="delete" Enhance>
+            <button type="submit" class="btn btn-danger" disabled="@(tattendance is null)">削除</button> |
+            <a href="/tattendances?userid=@tattendance!.UserId">一覧に戻る</a>
+        </EditForm>
+    }
+</div>
+
+@code {
+    private InputModel? tattendance;
+
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    /// <summary>
+    /// エラーコード
+    /// </summary>
+    private ErrorCode? ErrorCode { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        (tattendance, _) = await InputModelService
+            .GetInputModelAsync<InputModel, TAttendance>(Id);
+
+        if (tattendance is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+
+        tattendance!.UserName = UserService.GetUserName(tattendance.UserId); ;
+        var dateDateTime = tattendance!.Date.ToDateTime(TimeOnly.MinValue);
+        tattendance!.PaidLeaveDurationTime =
+            dateDateTime + tattendance!.PaidLeaveDuration;
+        tattendance!.WorkedDurationTime =
+            dateDateTime + tattendance!.WorkedDuration;
+        tattendance!.OvertimeDurationTime =
+            dateDateTime + tattendance!.OvertimeDuration;
+    }
+
+    private async Task DeleteTAttendance()
+    {
+        if (tattendance!.LoginTime != null || tattendance!.LogoutTime != null)
+        {
+            // ログイン・ログアウトがある場合は更新
+            tattendance!.StartTime = null;
+            tattendance!.EndTime = null;
+            tattendance!.PaidLeaveDuration = null;
+            tattendance!.WorkedDuration = null;
+            tattendance!.OvertimeDuration = null;
+            tattendance!.Remarks = string.Empty;
+
+            ErrorCode = await InputModelService
+                .SaveInputModelAsync<InputModel, TAttendance>(tattendance!, Id);
+        }
+        else
+        {
+            // ログイン・ログアウトが無い場合は削除
+            await InputModelService.DeleteInputModelAsync<TAttendance>(Id);
+        }
+
+        if (ErrorCode == null
+            || ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+        {
+            NavigationManager.NavigateTo(
+                $"/tattendances?userid={tattendance!.UserId}");
+        }
+    }
+}
