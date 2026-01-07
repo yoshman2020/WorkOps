@@ -1,7 +1,9 @@
 ﻿@using WorkOps.Models.Errors
 @if (!string.IsNullOrEmpty(Message))
 {
-    <div class="alert alert-danger" role="alert">
+    var alertClass = ErrorCode != WorkOps.Models.Errors.ErrorCode.None
+        ? "danger" : "success";
+    <div class="alert alert-@alertClass" role="alert">
         @Message
     </div>
 }

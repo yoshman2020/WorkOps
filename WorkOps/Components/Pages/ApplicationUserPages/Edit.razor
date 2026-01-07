@@ -1,7 +1,9 @@
 ﻿@page "/applicationusers/edit"
 @attribute [Authorize(Roles = "Admin,Manager")]
 
+@using Microsoft.AspNetCore.WebUtilities
 @using Microsoft.EntityFrameworkCore
+@using System.Text
 @using WorkOps.Data
 @using WorkOps.Models
 @using WorkOps.Services
@@ -61,6 +63,7 @@ else
                     <ValidationMessage For="() => ApplicationUser.WorkTimeId" class="text-danger" />
                 </div>
                 <button type="submit" class="btn btn-primary">保存</button>
+                <a href="@resetPasswordUrl" class="btn btn-primary">パスワードリセット</a>
             </EditForm>
         </div>
     </div>
@@ -79,8 +82,16 @@ else
 
     private string? errorMessage;
 
+    private string? resetPasswordUrl;
+
     protected override async Task OnInitializedAsync()
     {
+        var user = await UserManager.FindByIdAsync(Id);
+        if (user == null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+
         var entity = await DbContext.Users
             .FirstOrDefaultAsync(m => m.Id == Id);
         if (entity == null)
@@ -100,6 +111,16 @@ else
                 : ""
         };
         PropertyUtil.CopyProperties(entity, ApplicationUser);
+
+        var code = await UserManager.GeneratePasswordResetTokenAsync(user!);
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+        resetPasswordUrl = NavigationManager.GetUriWithQueryParameters(
+            "/applicationusers/ResetPassword",
+            new Dictionary<string, object?>
+            {
+                ["Code"] = code,
+                ["Email"] = ApplicationUser?.Email
+            });
     }
 
     // To protect from overposting attacks, enable the specific properties you want to bind to.
