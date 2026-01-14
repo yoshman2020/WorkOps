@@ -20,7 +20,7 @@
 
 <p>削除します。よろしいですか？</p>
 <div>
-    <h2>顧客</h2>
+    <h2>ユーザー</h2>
     <hr />
     @if (applicationuser is null)
     {
@@ -153,6 +153,8 @@
             user.IsDeleted = true;
             DbContext.Update(user);
             await DbContext.SaveChangesAsync();
+            _ = await UserManager.SetLockoutEndDateAsync(
+                user, DateTimeOffset.MaxValue);
         }
         else
         {
