@@ -134,7 +134,8 @@ else
         try
         {
             ErrorCode = await InputModelService
-                .SaveInputModelAsync<InputModel, TAttendance>(TAttendance!, Id);
+                .SaveInputModelAsync<InputModel, TAttendance>(TAttendance!, Id,
+                    false);
         }
         catch (DbUpdateConcurrencyException)
         {
