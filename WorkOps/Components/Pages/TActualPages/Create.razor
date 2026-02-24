@@ -190,7 +190,8 @@
         }
 
         ErrorCode = await InputModelService
-            .SaveInputModelAsync<InputModel, TActual>(TActual);
+            .SaveInputModelAsync<InputModel, TActual>(
+                TActual, isCheckDuplicate: false);
 
         if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
         {

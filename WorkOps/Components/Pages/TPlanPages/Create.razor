@@ -178,7 +178,8 @@
         }
 
         ErrorCode = await InputModelService
-            .SaveInputModelAsync<InputModel, TPlan>(TPlan);
+            .SaveInputModelAsync<InputModel, TPlan>(
+                TPlan, isCheckDuplicate: false);
 
         if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
         {
