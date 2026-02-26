@@ -142,7 +142,8 @@
         TAttendance!.IsModified = true;
 
         ErrorCode = await InputModelService
-            .SaveInputModelAsync<InputModel, TAttendance>(TAttendance!);
+            .SaveInputModelAsync<InputModel, TAttendance>(
+                TAttendance!, isCheckDuplicate: false);
 
         if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
         {
