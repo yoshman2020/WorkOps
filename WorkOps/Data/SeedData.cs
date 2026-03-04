@@ -6,14 +6,27 @@ public class SeedData
 {
     public static async Task InitializeAsync(IServiceProvider serviceProvider)
     {
+        var dbContext = serviceProvider.GetRequiredService<
+            ApplicationDbContext>();
+
+        if (dbContext == null || dbContext.Users == null)
+        {
+            throw new NullReferenceException(
+                "Null ApplicationDbContext or Users DbSet");
+        }
+
+        if (dbContext.Users.Any())
+        {
+            // すでにデータが存在する場合はシード処理をスキップ
+            return;
+        }
+
         var roleManager = serviceProvider.GetRequiredService<
             RoleManager<IdentityRole>>();
         var userManager = serviceProvider.GetRequiredService<
             UserManager<ApplicationUser>>();
         var userStore = serviceProvider.GetRequiredService<
             IUserStore<ApplicationUser>>();
-        var dbContext = serviceProvider.GetRequiredService<
-            ApplicationDbContext>();
 
         string[] roleNames = ["Admin", "Manager", "User"];
 
@@ -40,11 +53,6 @@ public class SeedData
         (var generalUser, _) = await CreateUser(
             userManager, userStore,
             "user@example.com", "User@123", "User", "一般ユーザー");
-
-        if (dbContext.MWorkTime.Any())
-        {
-            return; // すでにデータが存在する場合はシード処理をスキップ
-        }
 
         // 勤務時間
         dbContext.MWorkTime.AddRange(
