@@ -110,13 +110,13 @@ public class AttendanceRepository(ApplicationDbContext DbContext,
 
                 // ログイン時間を更新
                 attendance.LoginTime = now;
-                attendance.StartTime = startTime;
+                attendance.StartTime ??= startTime;
             }
             else
             {
                 // ログアウト時間を更新
                 attendance.LogoutTime = now;
-                attendance.EndTime = endTime;
+                attendance.EndTime ??= endTime;
             }
 
             if (workTime != null
@@ -128,7 +128,7 @@ public class AttendanceRepository(ApplicationDbContext DbContext,
                     == workTime?.EndTime)
             {
                 // 出退勤が時間通りの場合勤務時間設定
-                attendance.WorkedDuration = workTime?.WorkedDuration;
+                attendance.WorkedDuration ??= workTime?.WorkedDuration;
             }
 
             DbContext.TAttendance.Update(attendance);
