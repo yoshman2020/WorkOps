@@ -233,23 +233,33 @@ public partial class Index
                             UserName = atteAndAm.attendance.entity.User?.FullName ?? string.Empty,
                             HolidayName = atteAndAm.attendance.HolidayName,
                             PaidLeaveDurationString = GetDulationString(
-                            atteAndAm.attendance.entity.Date,
-                            atteAndAm.attendance.entity.PaidLeaveDuration),
+                                atteAndAm.attendance.entity.Date,
+                                atteAndAm.attendance.entity.PaidLeaveDuration),
                             WorkedDurationString = GetDulationString(
-                            atteAndAm.attendance.entity.Date,
-                            atteAndAm.attendance.entity.WorkedDuration),
+                                atteAndAm.attendance.entity.Date,
+                                atteAndAm.attendance.entity.WorkedDuration),
                             OvertimeDurationString = GetDulationString(
-                            atteAndAm.attendance.entity.Date,
-                            atteAndAm.attendance.entity.OvertimeDuration),
+                                atteAndAm.attendance.entity.Date,
+                                atteAndAm.attendance.entity.OvertimeDuration),
                             WorkDetailAm = string.Join(",", atteAndAm.tactualsAm
-                            .Select(a =>
-                            $"{a.tactual.MPhase.MProject.Name} {a.tactual.MPhase.Name}")
-                            .ToList()),
+                                .Select(a =>
+                                $"{a.tactual.MPhase.MProject.Name} {a.tactual.MPhase.Name}")
+                                .ToList()),
                             WorkDetailPm = string.Join(",", tactualsPm
-                            .Select(a =>
-                            $"{a.tactual.MPhase.MProject.Name} {a.tactual.MPhase.Name}")
-                            .ToList()),
+                                .Select(a =>
+                                $"{a.tactual.MPhase.MProject.Name} {a.tactual.MPhase.Name}")
+                                .ToList()),
                         };
+                        atteAndAm.attendance.inputModel.PaidLeaveDurationString
+                            = inputModel.PaidLeaveDurationString;
+                        atteAndAm.attendance.inputModel.WorkedDurationString
+                            = inputModel.WorkedDurationString;
+                        atteAndAm.attendance.inputModel.OvertimeDurationString
+                            = inputModel.OvertimeDurationString;
+                        atteAndAm.attendance.inputModel.WorkDetailAm
+                            = inputModel.WorkDetailAm;
+                        atteAndAm.attendance.inputModel.WorkDetailPm
+                            = inputModel.WorkDetailPm;
 
                         PropertyUtil.CopyProperties(
                             atteAndAm.attendance.entity, inputModel);
@@ -279,13 +289,13 @@ public partial class Index
 
             // 合計値算出
             totalPaidLeave = GettotalTime(
-                entities, e => e.PaidLeaveDuration);
+                attendances, e => e.PaidLeaveDuration);
             totalWorked = GettotalTime(
-                entities, e => e.WorkedDuration);
+                attendances, e => e.WorkedDuration);
             totalOvertime = GettotalTime(
-                entities, e => e.OvertimeDuration);
+                attendances, e => e.OvertimeDuration);
             // 稼働日
-            var days = entities.Count(e => e.StartTime != null);
+            var days = attendances.Count(e => e.StartTime != null);
             workingDays = $"{days}";
             // 合計時間
             totalTime = $"{days * 8}時間";
