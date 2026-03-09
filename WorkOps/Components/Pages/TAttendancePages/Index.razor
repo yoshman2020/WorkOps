@@ -27,13 +27,13 @@
             <input type="date" id="dateTo" @bind="DateTo" class="form-control" />
         </div>
         <div class="col-auto">
-            <button id="prev" @onclick="() => ChangeMonthAsync(-1)" class="btn btn-primary">
+            <button id="prev" @onclick="() => ChangeMonth(-1)" class="btn btn-primary">
                 &lt;
             </button>
-            <button id="current" @onclick="() => ChangeMonthAsync(0)" class="btn btn-primary">
+            <button id="current" @onclick="() => ChangeMonth(0)" class="btn btn-primary">
                 &cir;
             </button>
-            <button id="prev" @onclick="() => ChangeMonthAsync(1)" class="btn btn-primary">
+            <button id="prev" @onclick="() => ChangeMonth(1)" class="btn btn-primary">
                 &gt;
             </button>
         </div>

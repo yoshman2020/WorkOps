@@ -22,9 +22,7 @@ public partial class Index
             if (_userId != value)
             {
                 _userId = value;
-#pragma warning disable CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
-                LoadSelectedDataAsync();
-#pragma warning restore CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
+                LoadSelectedData();
             }
         }
     }
@@ -37,9 +35,7 @@ public partial class Index
             if (_dateFrom != value)
             {
                 _dateFrom = value;
-#pragma warning disable CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
-                LoadSelectedDataAsync();
-#pragma warning restore CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
+                LoadSelectedData();
             }
         }
     }
@@ -52,9 +48,7 @@ public partial class Index
             if (_dateTo != value)
             {
                 _dateTo = value;
-#pragma warning disable CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
-                LoadSelectedDataAsync();
-#pragma warning restore CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
+                LoadSelectedData();
             }
         }
     }
@@ -91,16 +85,16 @@ public partial class Index
         hassNotAuthorized = !await UserService.HasAdminRoleAsync();
 
         DateService.SetThisMonth(ref _dateFrom, ref _dateTo);
-        await LoadSelectedDataAsync();
+        LoadSelectedData();
     }
 
     /// <summary>
     /// データ読み込み
     /// </summary>
     /// <returns></returns>
-    private async Task LoadSelectedDataAsync()
+    private void LoadSelectedData()
     {
-        InputModels = await LoadDataAsync(DateFrom, DateTo);
+        InputModels = LoadData(DateFrom, DateTo);
     }
 
     /// <summary>
@@ -109,7 +103,7 @@ public partial class Index
     /// <param name="dtFrom">開始日</param>
     /// <param name="dtTo">終了日</param>
     /// <returns></returns>
-    private async Task<List<InputModel>?> LoadDataAsync(
+    private List<InputModel>? LoadData(
         DateOnly? dtFrom, DateOnly? dtTo)
     {
         List<InputModel> inputModels = [];
@@ -331,10 +325,10 @@ public partial class Index
     /// 月を変更する
     /// </summary>
     /// <param name="offset">オフセット。0の場合は当月</param>
-    private async Task ChangeMonthAsync(int offset)
+    private void ChangeMonth(int offset)
     {
         DateService.ChangeMonth(offset, ref _dateFrom, ref _dateTo);
-        await LoadSelectedDataAsync();
+        LoadSelectedData();
     }
 
     /// <summary>
@@ -398,7 +392,7 @@ public partial class Index
 
         for (int month = 1; month <= 12; month++)
         {
-            await GenerateExcelAsync(workbook, month, userName ?? string.Empty);
+            GenerateExcel(workbook, month, userName ?? string.Empty);
         }
 
         workbook.Worksheet($"{DateFrom.Month}月").SetTabActive();
@@ -418,10 +412,10 @@ public partial class Index
     /// <param name="workbook">WorkBook</param>
     /// <param name="month">月（1～12）</param>
     /// <param name="userName">ユーザー名</param>
-    private async Task GenerateExcelAsync(
+    private void GenerateExcel(
         XLWorkbook workbook, int month, string userName)
     {
-        var inputModels = await LoadDataAsync(
+        var inputModels = LoadData(
             new DateOnly(DateFrom.Year, month, 1),
             new DateOnly(DateFrom.Year, month,
                 DateTime.DaysInMonth(DateFrom.Year, month)));
