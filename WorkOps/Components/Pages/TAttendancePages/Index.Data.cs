@@ -1,0 +1,240 @@
+﻿using Microsoft.EntityFrameworkCore;
+using WorkOps.Models;
+
+namespace WorkOps.Components.Pages.TAttendancePages;
+
+/// <summary>
+/// DB処理
+/// </summary>
+public partial class Index
+{
+    /// <summary>
+    /// データ読み込み
+    /// </summary>
+    /// <param name="from">開始日</param>
+    /// <param name="to">終了日</param>
+    /// <returns></returns>
+    private List<InputModel> LoadData(DateOnly from, DateOnly to)
+    {
+        var attendances = LoadAttendances(from, to);
+
+        var actuals = LoadActuals(from, to);
+
+        var holidays = LoadHolidays(from, to);
+
+        var actualLookup = BuildActualLookup(actuals, from, to);
+
+        var models = BuildInputModels(
+            from,
+            to,
+            attendances,
+            actualLookup,
+            holidays);
+
+        CalculateTotals(models);
+
+        return models;
+    }
+
+    /// <summary>
+    /// 出退勤取得
+    /// </summary>
+    /// <param name="from">開始日</param>
+    /// <param name="to">終了日</param>
+    /// <returns></returns>
+    private List<TAttendance> LoadAttendances(DateOnly from, DateOnly to)
+    {
+        return [.. DbContext.TAttendance
+            .Include(e => e.User)
+            .Include(e => e.User!.MWorkTime)
+            .Where(e =>
+                e.UserId == UserId &&
+                from <= e.Date &&
+                e.Date <= to)];
+    }
+
+    /// <summary>
+    /// 実績取得
+    /// </summary>
+    /// <param name="from">開始日</param>
+    /// <param name="to">終了日</param>
+    /// <returns></returns>
+    private List<TActual> LoadActuals(DateOnly from, DateOnly to)
+    {
+        return [.. DbContext.TActual
+            .Include(e => e.MPhase)
+            .ThenInclude(p => p.MProject)
+            .ThenInclude(p => p.MCustomer)
+            .Where(e =>
+                e.UserId == UserId &&
+                from <= DateOnly.FromDateTime(e.EndDate) &&
+                DateOnly.FromDateTime(e.StartDate) <= to)];
+    }
+
+    /// <summary>
+    /// 祝日取得
+    /// </summary>
+    /// <param name="from">開始日</param>
+    /// <param name="to">終了日</param>
+    /// <returns></returns>
+    private Dictionary<DateOnly, MHoliday> LoadHolidays(DateOnly from, DateOnly to)
+    {
+        return DbContext.MHoliday
+            .Where(h => from <= h.Date && h.Date <= to)
+            .ToDictionary(h => h.Date);
+    }
+
+    /// <summary>
+    /// 実績Dictionary生成
+    /// </summary>
+    /// <param name="actuals">実績</param>
+    /// <param name="from">開始日</param>
+    /// <param name="to">終了日</param>
+    /// <returns></returns>
+    private static Dictionary<DateOnly, List<TActual>> BuildActualLookup(
+        List<TActual> actuals,
+        DateOnly from,
+        DateOnly to)
+    {
+        var dict = new Dictionary<DateOnly, List<TActual>>();
+
+        foreach (var actual in actuals)
+        {
+            var start = DateOnly.FromDateTime(actual.StartDate);
+            var end = DateOnly.FromDateTime(actual.EndDate);
+
+            if (start < from) start = from;
+            if (end > to) end = to;
+
+            for (var day = start; day <= end; day = day.AddDays(1))
+            {
+                if (!dict.TryGetValue(day, out var list))
+                {
+                    list = [];
+                    dict[day] = list;
+                }
+
+                list.Add(actual);
+            }
+        }
+
+        return dict;
+    }
+
+    /// <summary>
+    /// InputModel作成
+    /// </summary>
+    /// <param name="from">開始日</param>
+    /// <param name="to">終了日</param>
+    /// <param name="attendances">出退勤</param>
+    /// <param name="actuals">実績</param>
+    /// <param name="holidays">祝日</param>
+    /// <returns></returns>
+    private List<InputModel> BuildInputModels(
+    DateOnly from,
+    DateOnly to,
+    List<TAttendance> attendances,
+    Dictionary<DateOnly, List<TActual>> actualLookup,
+    Dictionary<DateOnly, MHoliday> holidays)
+    {
+        var attendanceDict = attendances.ToDictionary(a => a.Date);
+
+        var models = new List<InputModel>();
+
+        for (var day = from; day <= to; day = day.AddDays(1))
+        {
+            attendanceDict.TryGetValue(day, out var attendance);
+
+            actualLookup.TryGetValue(day, out var dayActuals);
+
+            dayActuals ??= [];
+
+            var model = new InputModel
+            {
+                UserId = UserId,
+                UserName = attendance?.User?.FullName
+                    ?? Users.FirstOrDefault(u => u.Id == UserId)?.FullName
+                    ?? "",
+                Date = day,
+                HolidayName = holidays.TryGetValue(day, out var h)
+                    ? h.Name
+                    : "",
+                StartTime = attendance?.StartTime,
+                EndTime = attendance?.EndTime,
+                PaidLeaveDuration = attendance?.PaidLeaveDuration,
+                WorkedDuration = attendance?.WorkedDuration,
+                OvertimeDuration = attendance?.OvertimeDuration,
+                PaidLeaveDurationString =
+                    GetDulationString(day, attendance?.PaidLeaveDuration),
+                WorkedDurationString =
+                    GetDulationString(day, attendance?.WorkedDuration),
+                OvertimeDurationString =
+                    GetDulationString(day, attendance?.OvertimeDuration),
+                WorkDetailAm = string.Join(",",
+                    dayActuals
+                        .Where(a => a.StartDate.TimeOfDay <= new TimeSpan(12, 0, 0))
+                        .Select(a =>
+                            $"{a.MPhase.MProject.Name} {a.MPhase.Name}")),
+                WorkDetailPm = string.Join(",",
+                    dayActuals
+                        .Where(a => new TimeSpan(12, 0, 0) < a.EndDate.TimeOfDay)
+                        .Select(a =>
+                            $"{a.MPhase.MProject.Name} {a.MPhase.Name}"))
+            };
+
+            models.Add(model);
+        }
+
+        return models;
+    }
+
+    /// <summary>
+    /// 合計計算
+    /// </summary>
+    /// <param name="models"></param>
+    private void CalculateTotals(List<InputModel> models)
+    {
+        totalPaidLeave = GettotalTime(models, e => e.PaidLeaveDuration);
+        totalWorked = GettotalTime(models, e => e.WorkedDuration);
+        totalOvertime = GettotalTime(models, e => e.OvertimeDuration);
+
+        var days = models.Count(e => e.StartTime != null);
+
+        workingDays = $"{days}";
+        totalTime = $"{days * 8}時間";
+    }
+
+    /// <summary>
+    /// TimeSpanをDateTimeに変換
+    /// </summary>
+    /// <param name="date"></param>
+    /// <param name="timeSpan"></param>
+    /// <returns></returns>
+    private static string GetDulationString(DateOnly date, TimeSpan? timeSpan)
+    {
+        if (timeSpan == null || timeSpan == TimeSpan.Zero)
+        {
+            return string.Empty;
+        }
+        return date
+            .ToDateTime(TimeOnly.MinValue)
+            .Add(timeSpan ?? TimeSpan.Zero)
+            .ToString("HH:mm");
+    }
+
+    /// <summary>
+    /// TimeSpanの合計をDateTimeで返す
+    /// </summary>
+    /// <param name="entities">合計する列を含むエンティティ</param>
+    /// <param name="selector">合計する列のセレクタ</param>
+    /// <returns></returns>
+    private static string GettotalTime<T>(
+        IEnumerable<T> entities, Func<T, TimeSpan?> selector)
+    {
+        var total = entities
+            .Select(selector)
+            .Aggregate(TimeSpan.Zero, (sum, d) => sum + (d ?? TimeSpan.Zero));
+
+        return $"{(int)total.TotalHours:00}:{total.Minutes:00}";
+    }
+}
