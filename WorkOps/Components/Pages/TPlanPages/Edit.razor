@@ -190,7 +190,7 @@ else
         try
         {
             ErrorCode = await InputModelService
-                .SaveInputModelAsync<InputModel, TPlan>(TPlan!, Id);
+                .SaveInputModelAsync<InputModel, TPlan>(TPlan!, Id, false);
         }
         catch (DbUpdateConcurrencyException)
         {
