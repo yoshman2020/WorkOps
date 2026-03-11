@@ -9,3 +9,7 @@
 ::deep td {
     text-align: center !important;
 }
+
+::deep td.text-start {
+    text-align: left !important;
+}
