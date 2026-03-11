@@ -137,7 +137,9 @@ public partial class Index
     Dictionary<DateOnly, List<TActual>> actualLookup,
     Dictionary<DateOnly, MHoliday> holidays)
     {
-        var attendanceDict = attendances.ToDictionary(a => a.Date);
+        var attendanceDict = attendances
+            .GroupBy(a => a.Date)
+            .ToDictionary(g => g.Key, g => g.First());
 
         var models = new List<InputModel>();
 
@@ -179,7 +181,9 @@ public partial class Index
                     dayActuals
                         .Where(a => new TimeSpan(12, 0, 0) < a.EndDate.TimeOfDay)
                         .Select(a =>
-                            $"{a.MPhase.MProject.Name} {a.MPhase.Name}"))
+                            $"{a.MPhase.MProject.Name} {a.MPhase.Name}")),
+                LoginTime = attendance?.LoginTime,
+                LogoutTime = attendance?.LogoutTime,
             };
 
             models.Add(model);
