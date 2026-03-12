@@ -161,7 +161,6 @@
                     && firstMonday <= e.Date
                     && e.Date < nextMonday
                 );
-            ;
 
             inputModels = mondays.GroupJoin(treports,
                 monday => monday,
@@ -173,7 +172,9 @@
                     DateString = $"{monday:MM/dd} ～ {monday.AddDays(6):MM/dd}",
                     Description = string.Join(',',
                         treports.SelectMany(t => t.TReportDetails)
-                        .Select(x => $"{x.MProject?.Name ?? "その他"}")),
+                        .Where(x => !string.IsNullOrEmpty(x.MProject?.Name)
+                            && x.MProject.Name != "その他")
+                        .Select(x => x.MProject!.Name)),
                 })
                 .ToList();
 
