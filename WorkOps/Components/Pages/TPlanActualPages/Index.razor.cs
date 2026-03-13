@@ -65,6 +65,14 @@ public partial class Index
     /// </summary>
     private static readonly bool[] planActArray = [false, true];
 
+    /// <summary>
+    /// 作業工数合計
+    /// </summary>
+    private double TotalManHour =>
+        InputModels?
+            .Where(x => x.IsActual)
+            .Sum(x => x.ManHour) ?? 0;
+
     protected override async Task OnInitializedAsync()
     {
         Users = await UserService.GetUsersAsync();
