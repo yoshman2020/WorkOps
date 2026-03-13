@@ -17,6 +17,7 @@ builder.Services.AddScoped<IdentityUserAccessor>();
 builder.Services.AddScoped<IdentityRedirectManager>();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 builder.Services.AddScoped<NavigationService>();
+builder.Services.AddScoped<BusinessDayService>();
 
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<CustomCookieAuthenticationEvents>();

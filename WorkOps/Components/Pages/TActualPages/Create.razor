@@ -7,6 +7,7 @@
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
 @inject WorkOps.Services.NavigationService NavigationService
+@inject WorkOps.Services.BusinessDayService BusinessDayService
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @rendermode InteractiveServer
@@ -58,12 +59,20 @@
             </div>
             <div class="mb-3">
                 <label for="startdate" class="form-label">開始日時:</label>
-                <InputDate Type="InputDateType.DateTimeLocal" id="startdate" @bind-Value="TActual.StartDate" class="form-control" />
+                <InputDate Type="InputDateType.DateTimeLocal"
+                           id="startdate"
+                           @bind-Value="TActual.StartDate"
+                           @bind-Value:after="CalculateManHour"
+                           class="form-control" />
                 <ValidationMessage For="() => TActual.StartDate" class="text-danger" />
             </div>
             <div class="mb-3">
                 <label for="enddate" class="form-label">終了日時:</label>
-                <InputDate Type="InputDateType.DateTimeLocal" id="enddate" @bind-Value="TActual.EndDate" class="form-control" />
+                <InputDate Type="InputDateType.DateTimeLocal"
+                           id="enddate"
+                           @bind-Value="TActual.EndDate"
+                           @bind-Value:after="CalculateManHour"
+                           class="form-control" />
                 <ValidationMessage For="() => TActual.EndDate" class="text-danger" />
             </div>
             <div class="mb-3">
@@ -130,9 +139,34 @@
     {
         Projects = await DbContext.MProject.ToListAsync();
         TActual ??= new();
-        TActual.StartDate = DateTime.Today.AddHours(9);
-        TActual.EndDate = DateTime.Today.AddHours(18);
-        TActual.ManHour = 8;
+
+        if (string.IsNullOrEmpty(UserId))
+        {
+            var users = await UserService.GetUsersAsync();
+            UserId = await UserService.GetUserIdAsync(users, UserId!);
+        }
+
+        // ユーザーIDからユーザーを取得
+        var user = DbContext.Users.Where(u => u.Id == UserId)
+            .FirstOrDefault();
+
+        if (user is null)
+        {
+            ErrorCode = Models.Errors.ErrorCode.NotFound;
+            return;
+        }
+
+        TActual.UserName = user.FullName;
+
+        var dateOnlyToday = DateOnly.FromDateTime(DateTime.Today);
+
+        // 勤務時間
+        var startTime = user.MWorkTime?.StartTime ?? new TimeOnly(9, 0);
+        var endTime = user.MWorkTime?.EndTime ?? new TimeOnly(18, 0);
+
+        TActual.StartDate = dateOnlyToday.ToDateTime(startTime);
+        TActual.EndDate = dateOnlyToday.ToDateTime(endTime);
+        TActual.ManHour = user.MWorkTime?.WorkedDuration?.TotalHours ?? 8;
 
         if (MPhaseId != null && MPhaseId != 0)
         {
@@ -149,14 +183,6 @@
                 .ToListAsync();
         }
         TActual.MPhaseId = MPhaseId;
-
-        if (string.IsNullOrEmpty(UserId))
-        {
-            var users = await UserService.GetUsersAsync();
-            UserId = await UserService.GetUserIdAsync(users, UserId!);
-        }
-
-        TActual.UserName = UserService.GetUserName(UserId);
     }
 
     private async Task OnProjectValueChange(ChangeEventArgs e)
@@ -170,6 +196,24 @@
         Phases = await DbContext.MPhase
             .Where(p => p.MProjectId == MProjectId)
             .ToListAsync();
+    }
+
+    /// <summary>
+    // 作業工数計算
+    /// </summary>
+    private async Task CalculateManHour()
+    {
+        if (TActual is null) return;
+
+        // 作業工数計算
+        var duration = await BusinessDayService.CalculateWorkDurationAsync(
+            UserId,
+            TActual.StartDate,
+            TActual.EndDate
+        );
+
+        TActual.ManHour = Math.Round(
+            duration.TotalHours, 1, MidpointRounding.AwayFromZero);
     }
 
     // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.

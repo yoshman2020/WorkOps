@@ -6,6 +6,7 @@
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
 @inject WorkOps.Services.NavigationService NavigationService
+@inject WorkOps.Services.BusinessDayService BusinessDayService
 @inject NavigationManager NavigationManager
 @rendermode InteractiveServer
 
@@ -62,12 +63,20 @@ else
                 </div>
                 <div class="mb-3">
                     <label for="startdate" class="form-label">開始日時:</label>
-                    <InputDate Type="InputDateType.DateTimeLocal" id="startdate" @bind-Value="TActual.StartDate" class="form-control" />
+                    <InputDate Type="InputDateType.DateTimeLocal"
+                               id="startdate"
+                               @bind-Value="TActual.StartDate"
+                               @bind-Value:after="CalculatManHour"
+                               class="form-control" />
                     <ValidationMessage For="() => TActual.StartDate" class="text-danger" />
                 </div>
                 <div class="mb-3">
                     <label for="enddate" class="form-label">終了日時:</label>
-                    <InputDate Type="InputDateType.DateTimeLocal" id="enddate" @bind-Value="TActual.EndDate" class="form-control" />
+                    <InputDate Type="InputDateType.DateTimeLocal"
+                               id="enddate"
+                               @bind-Value="TActual.EndDate"
+                               @bind-Value:after="CalculatManHour"
+                               class="form-control" />
                     <ValidationMessage For="() => TActual.EndDate" class="text-danger" />
                 </div>
                 <div class="mb-3">
@@ -184,6 +193,24 @@ else
         Phases = await DbContext.MPhase
             .Where(p => p.MProjectId == MProjectId)
             .ToListAsync();
+    }
+
+    /// <summary>
+    // 作業工数計算
+    /// </summary>
+    private async Task CalculatManHour()
+    {
+        if (TActual is null) return;
+
+        // 作業工数計算
+        var duration = await BusinessDayService.CalculateWorkDurationAsync(
+            TActual.UserId,
+            TActual.StartDate,
+            TActual.EndDate
+        );
+
+        TActual.ManHour = Math.Round(
+            duration.TotalHours, 1, MidpointRounding.AwayFromZero);
     }
 
     // To protect from overposting attacks, enable the specific properties you want to bind to.
