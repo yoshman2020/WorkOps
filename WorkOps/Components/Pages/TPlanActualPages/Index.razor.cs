@@ -52,7 +52,7 @@ public partial class Index
     }
 
     private List<InputModel>? InputModels;
-    private readonly PaginationState pagination = new() { ItemsPerPage = 20 };
+    private readonly PaginationState pagination = new() { ItemsPerPage = 30 };
     private List<ApplicationUser> Users = [];
 
     /// <summary>
