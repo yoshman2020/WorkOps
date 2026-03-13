@@ -49,12 +49,13 @@
     <QuickGrid Class="table table-striped" Items="InputModels!.AsQueryable()" Pagination="pagination" RowClass="GetRowClass">
         <DisplayPropertyColumn Property="tplanactual => tplanactual.PhaseName" Class="text-nowrap" />
         <DisplayPropertyColumn Property="tplanactual => tplanactual.ManHour" Format="#.#" />
-        <DisplayPropertyColumn Property="tplanactual => tplanactual.ProgressRateString" />
+        <DisplayPropertyColumn Property="tplanactual => tplanactual.ProgressRateString" Class="text-nowrap" />
         <DisplayPropertyColumn Property="tplanactual => tplanactual.EndDate" Format="MM/dd" />
-        <DisplayPropertyColumn Property="tplanactual => tplanactual.TypeName" />
+        <DisplayPropertyColumn Property="tplanactual => tplanactual.TypeName" Class="text-nowrap" />
 
-        @foreach (var date in Dates!)
+        @foreach (var item in Dates!.Select((date, index) => new { date, index }))
         {
+            var date = item.date;
             var dow = date.DayOfWeek;
             var className = dow switch
             {
@@ -68,9 +69,15 @@
             {
                 className = "holiday";
             }
-            <TemplateColumn Context="tplanactual" Class="@($"text-center px-0 {className}")">
+
+            // 月のはじめまたは先頭
+            var isMonthChanged =
+            item.index == 0 ||
+            item.date.Month != Dates!.ElementAt(item.index - 1).Month;
+
+            <TemplateColumn Context="tplanactual" Class="@($"text-center ps-1 pe-0 text-nowrap {className}")">
                 <HeaderTemplate>
-                    <span>@date.ToString("MM/dd")</span>
+                    <span>@date.ToString(isMonthChanged ? "MM/dd" : "dd")</span>
                 </HeaderTemplate>
                 <ChildContent>
                     @if (tplanactual.Cells[date].Item1 != 0)

@@ -1,11 +1,19 @@
 ﻿::deep tr:nth-child(even) > td:nth-child(n+5) > a {
     color: red !important;
     text-decoration: none;
+    display: inline-block;
+    transform: scaleX(1.5);
 }
 
 ::deep tr:nth-child(odd) > td:nth-child(n+5) > a {
     color: blue !important;
     text-decoration: none;
+    display: inline-block;
+    transform: scaleX(1.5);
+}
+
+::deep td:has(a) {
+    padding: 0 !important;
 }
 
 ::deep .sunday, ::deep .saturday, ::deep .holiday {
@@ -23,4 +31,21 @@
 
 ::deep .actual {
     height: 24px;
+}
+
+/* ヘッダー内の余白を削除 */
+::deep .quickgrid .col-header-content {
+    padding: 0;
+    display: inlie-block;
+}
+
+::deep .quickgrid .col-title {
+    padding: 0;
+}
+
+/* ソートアイコンの幅を削除 */
+::deep .quickgrid .sort-indicator {
+    width: 0;
+    margin: 0;
+    padding: 0;
 }

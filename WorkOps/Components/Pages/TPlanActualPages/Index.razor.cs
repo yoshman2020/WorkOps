@@ -190,7 +190,7 @@ public partial class Index
                                 && a.StartDate <= date.AddDays(2)
                                 && date.AddDays(1) <= a.EndDate);
                         target.Cells[date] = (plan.Id,
-                            nextDateExists ? "――――" : "―――>");
+                            nextDateExists ? "―" : "―‣");
                     }
                 }
             }
@@ -216,7 +216,7 @@ public partial class Index
                                 && a.StartDate <= date.AddDays(2)
                                 && date.AddDays(1) <= a.EndDate);
                         target.Cells[date] = (actual.Id,
-                            nextDateExists ? "――――" : "―――>");
+                            nextDateExists ? "―" : "―‣");
                     }
 
                     // 進捗率
