@@ -6,7 +6,7 @@
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JS
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>進捗管理</PageTitle>
 
@@ -53,6 +53,7 @@
         <DisplayPropertyColumn Property="tplanactual => tplanactual.EndDate" Format="MM/dd" />
         <DisplayPropertyColumn Property="tplanactual => tplanactual.TypeName" Class="text-nowrap" />
 
+        @* @foreach (var date in Dates!) *@
         @foreach (var item in Dates!.Select((date, index) => new { date, index }))
         {
             var date = item.date;

@@ -12,7 +12,7 @@
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject NavigationManager NavigationManager
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>編集</PageTitle>
 
@@ -86,10 +86,17 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        if (string.IsNullOrEmpty(Id))
+        {
+            NavigationManager.NavigateTo("notfound");
+            return;
+        }
+
         var user = await UserManager.FindByIdAsync(Id);
         if (user == null)
         {
             NavigationManager.NavigateTo("notfound");
+            return;
         }
 
         var entity = await DbContext.Users
@@ -97,6 +104,7 @@ else
         if (entity == null)
         {
             NavigationManager.NavigateTo("notfound");
+            return;
         }
         var role = await UserManager.GetRolesAsync(entity!);
         var workTime = DbContext.MWorkTime

@@ -6,7 +6,7 @@
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
 @inject NavigationManager NavigationManager
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>編集</PageTitle>
 
@@ -100,12 +100,19 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        if (Id == 0)
+        {
+            NavigationManager.NavigateTo("notfound");
+            return;
+        }
+
         (TAttendance, var _) = await InputModelService
             .GetInputModelAsync<InputModel, TAttendance>(Id);
 
         if (TAttendance is null)
         {
             NavigationManager.NavigateTo("notfound");
+            return;
         }
 
         TAttendance!.UserName = UserService.GetUserName(TAttendance!.UserId);

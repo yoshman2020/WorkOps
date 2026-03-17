@@ -8,7 +8,7 @@
 @inject WorkOps.Services.UserService UserService
 @inject WorkOps.Services.InputModelService InputModelService
 @inject NavigationManager NavigationManager
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>新規作成</PageTitle>
 

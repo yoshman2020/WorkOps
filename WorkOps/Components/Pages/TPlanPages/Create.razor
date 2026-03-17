@@ -10,7 +10,7 @@
 @inject WorkOps.Services.BusinessDayService BusinessDayService
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>新規作成</PageTitle>
 
@@ -191,7 +191,7 @@
     /// </summary>
     private async Task CalculateManHour()
     {
-        if (TPlan is null) return;
+        if (TPlan is null || UserId is null) return;
 
         // 作業工数計算
         var duration = await BusinessDayService.CalculateWorkDurationAsync(

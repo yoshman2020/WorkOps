@@ -153,6 +153,7 @@ public partial class Index
 
             var model = new InputModel
             {
+                Id = attendance?.Id ?? 0,
                 UserId = UserId,
                 UserName = attendance?.User?.FullName
                     ?? Users.FirstOrDefault(u => u.Id == UserId)?.FullName

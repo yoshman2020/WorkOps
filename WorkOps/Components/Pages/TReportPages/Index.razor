@@ -16,7 +16,7 @@
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JS
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>週間報告書</PageTitle>
 
@@ -51,10 +51,6 @@
         </div>
     </div>
 </form>
-
-<p>
-    <a href="treports/create">新規作成</a>
-</p>
 
 <QuickGrid Class="table" Items="InputModels!.AsQueryable()">
     <DisplayPropertyColumn Property="treport => treport.DateString" />

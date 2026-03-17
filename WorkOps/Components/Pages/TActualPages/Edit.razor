@@ -8,7 +8,7 @@
 @inject WorkOps.Services.NavigationService NavigationService
 @inject WorkOps.Services.BusinessDayService BusinessDayService
 @inject NavigationManager NavigationManager
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>編集</PageTitle>
 
@@ -138,6 +138,12 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        if (Id == 0)
+        {
+            NavigationManager.NavigateTo("notfound");
+            return;
+        }
+
         Projects = await DbContext.MProject.ToListAsync();
         (TActual, var entity) = await InputModelService
             .GetInputModelAsync<InputModel, TActual>(Id);
@@ -145,6 +151,7 @@ else
         if (TActual is null)
         {
             NavigationManager.NavigateTo("notfound");
+            return;
         }
 
         TActual!.UserName = UserService.GetUserName(entity!.UserId);

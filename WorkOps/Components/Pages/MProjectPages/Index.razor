@@ -4,7 +4,7 @@
 @using WorkOps.Models
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>プロジェクト一覧</PageTitle>
 

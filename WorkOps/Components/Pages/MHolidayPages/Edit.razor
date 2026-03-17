@@ -5,7 +5,7 @@
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject NavigationManager NavigationManager
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>編集</PageTitle>
 
@@ -64,12 +64,19 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        if (Id == 0)
+        {
+            NavigationManager.NavigateTo("notfound");
+            return;
+        }
+
         (MHoliday, _) = await InputModelService
             .GetInputModelAsync<InputModel, MHoliday>(Id);
 
         if (MHoliday is null)
         {
             NavigationManager.NavigateTo("notfound");
+            return;
         }
     }
 

@@ -5,7 +5,7 @@
 @using WorkOps.Data
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>勤務時間一覧</PageTitle>
 

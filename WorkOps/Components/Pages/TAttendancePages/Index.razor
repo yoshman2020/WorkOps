@@ -5,7 +5,7 @@
 @inject WorkOps.Services.UserService UserService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JS
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>出退勤</PageTitle>
 

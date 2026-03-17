@@ -1,12 +1,7 @@
-﻿using ClosedXML.Excel;
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.JSInterop;
 using WorkOps.Data;
-using WorkOps.Models.Attributes;
 using WorkOps.Services;
-using WorkOps.Utils;
 
 namespace WorkOps.Components.Pages.TAttendancePages;
 

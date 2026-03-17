@@ -55,7 +55,7 @@ Pagesを右クリックし追加＞新規スキャフォールディングアイ
 
 Edit.razorの場合は更に
 ```
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 var tTableName = await DbContext.TTableNames.FirstOrDefaultAsync(m => m.Id == Id);
 if (tTableName is null)

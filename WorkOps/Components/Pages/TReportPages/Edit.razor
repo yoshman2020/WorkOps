@@ -6,7 +6,7 @@
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
 @inject NavigationManager NavigationManager
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>編集</PageTitle>
 
@@ -82,12 +82,19 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        if (Id == 0)
+        {
+            NavigationManager.NavigateTo("notfound");
+            return;
+        }
+
         (TReport, var entity) = await InputModelService
             .GetInputModelAsync<InputModel, TReport>(Id);
 
         if (TReport is null || entity is null)
         {
             NavigationManager.NavigateTo("notfound");
+            return;
         }
 
         TReport!.DateString =

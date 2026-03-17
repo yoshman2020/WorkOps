@@ -6,7 +6,7 @@
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.NavigationService NavigationService
 @inject NavigationManager NavigationManager
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>編集</PageTitle>
 
@@ -79,12 +79,19 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        if (Id == 0)
+        {
+            NavigationManager.NavigateTo("notfound");
+            return;
+        }
+
         (MProject, _) = await InputModelService
             .GetInputModelAsync<InputModel, MProject>(Id);
 
         if (MProject is null)
         {
             NavigationManager.NavigateTo("notfound");
+            return;
         }
 
         if (MCustomerId != null && MCustomerId != 0)
