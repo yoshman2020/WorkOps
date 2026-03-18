@@ -80,11 +80,11 @@
                     <span>@date.ToString(isMonthChanged ? "MM/dd" : "dd")</span>
                 </HeaderTemplate>
                 <ChildContent>
-                    @if (tplanactual.Cells[date].Item1 != 0)
+                    @if (tplanactual.Cells[date].Id != 0)
                     {
                         var baseurl = tplanactual.IsActual ? $"/tactuals" : $"/tplans";
-                        var url = $"{baseurl}/edit?id={tplanactual.Cells[date].Item1}";
-                        <a href="@url">@tplanactual.Cells[date].Item2</a>
+                        var url = $"{baseurl}/edit?id={tplanactual.Cells[date].Id}";
+                        <a href="@url" title="@tplanactual.Cells[date].Tooltip">@tplanactual.Cells[date].DisplayText</a>
                     }
                 </ChildContent>
             </TemplateColumn>

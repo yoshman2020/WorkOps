@@ -26,9 +26,10 @@ public sealed class InputModel : BaseInputModel
             RowClass switch { "actual" => "実績", "plan" => "予定", _ => "" }; }
 
     /// <summary>
-    /// 日付ごと予定・実績IDと表示文字（―――>）
+    /// 日付ごと予定・実績IDと表示文字（―――>）とツールチップ
     /// </summary>
-    public Dictionary<DateTime, (int, string)> Cells = default!;
+    public Dictionary<DateTime,
+        (int Id, string DisplayText, string Tooltip)> Cells = default!;
 
     /// <summary>
     /// 顧客ID

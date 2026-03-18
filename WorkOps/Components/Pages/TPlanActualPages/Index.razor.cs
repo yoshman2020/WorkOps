@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.JSInterop;
+using System.Linq;
 using WorkOps.Data;
+using WorkOps.Models;
 using WorkOps.Services;
 
 namespace WorkOps.Components.Pages.TPlanActualPages;
@@ -155,7 +157,8 @@ public partial class Index
                         ProjectName = type ? "" : p.MProject!.Name,
                         PhaseName = type ? "" : p.Name,
                         IsActual = type,
-                        Cells = dates.ToDictionary(d => d, d => (0, string.Empty)),
+                        Cells = dates.ToDictionary(d =>
+                            d, d => (0, string.Empty, string.Empty)),
                     })
                     .OrderBy(m => m.MCustomerId)
                     .ThenBy(m => m.MProjectId)
@@ -172,64 +175,61 @@ public partial class Index
             // 予定
             var plans = DbContext.TPlan
                 .Where(e => string.IsNullOrEmpty(UserId) || e.UserId == UserId)
-                .Where(e => (e.StartDate <= toDateTime && e.EndDate >= fromDateTime));
-            foreach (var plan in plans)
-            {
-                var target = inputModels
-                    .FirstOrDefault(m => m.MPhaseId == plan.MPhaseId && !m.IsActual);
-                if (target != null)
-                {
-                    foreach (var date in dates)
-                    {
-                        if (date < plan.StartDate.Date || plan.EndDate.Date < date)
-                        {
-                            continue;
-                        }
-                        var nextDateExists = dates.Any(d => date < d)
-                            && plans.Any(a => a.MPhaseId == plan.MPhaseId
-                                && a.StartDate <= date.AddDays(2)
-                                && date.AddDays(1) <= a.EndDate);
-                        target.Cells[date] = (plan.Id,
-                            nextDateExists ? "―" : "―‣");
-                    }
-                }
-            }
+                .Where(e => (e.StartDate <= toDateTime && e.EndDate >= fromDateTime))
+                .ToList();
+
+            // 工程ごとにまとめた予定
+            var groupedPlans = GroupContinuous(
+                plans,
+                x => x.StartDate,
+                x => x.EndDate,
+                x => x.MPhaseId);
+
+            RenderCells(
+                groupedPlans,
+                plans,
+                x => x.MPhaseId,
+                x => x.StartDate,
+                x => x.EndDate,
+                x => x.Id,
+                x => $"{x.MPhase!.MProject!.MCustomer!.Name} {x.MPhase.MProject.Name} {x.MPhase.Name}",
+                false,
+                inputModels,
+                dates
+            );
 
             // 実績
             var actuals = DbContext.TActual
                 .Where(e => string.IsNullOrEmpty(UserId) || e.UserId == UserId)
-                .Where(e => (e.StartDate <= toDateTime && e.EndDate >= fromDateTime));
-            foreach (var actual in actuals)
-            {
-                var target = inputModels
-                    .FirstOrDefault(m => m.MPhaseId == actual.MPhaseId && m.IsActual);
-                if (target != null)
-                {
-                    foreach (var date in dates)
-                    {
-                        if (date < actual.StartDate.Date || actual.EndDate.Date < date)
-                        {
-                            continue;
-                        }
-                        var nextDateExists = dates.Any(d => date < d)
-                            && actuals.Any(a => a.MPhaseId == actual.MPhaseId
-                                && a.StartDate <= date.AddDays(2)
-                                && date.AddDays(1) <= a.EndDate);
-                        target.Cells[date] = (actual.Id,
-                            nextDateExists ? "―" : "―‣");
-                    }
+                .Where(e => (e.StartDate <= toDateTime && e.EndDate >= fromDateTime))
+                .ToList();
 
-                    // 進捗率
+            // 工程ごとにまとめた実績
+            var groupedActuals = GroupContinuous(
+                actuals,
+                x => x.StartDate,
+                x => x.EndDate,
+                x => x.MPhaseId);
+
+            RenderCells(
+                groupedActuals,
+                actuals,
+                x => x.MPhaseId,
+                x => x.StartDate,
+                x => x.EndDate,
+                x => x.Id,
+                x => $"{x.MPhase!.MProject!.MCustomer!.Name} {x.MPhase.MProject.Name} {x.MPhase.Name}",
+                true,
+                inputModels,
+                dates,
+                (actual, target) =>
+                {
                     if (actual.ProgressRate != null)
-                    {
                         target.ProgressRateString = $"{actual.ProgressRate} %";
-                    }
+
                     if (actual.ProgressRate == 100)
-                    {
                         target.EndDate = actual.EndDate;
-                    }
-                }
-            }
+                });
 
             // 作業工数
             foreach (var model in inputModels)
@@ -248,7 +248,8 @@ public partial class Index
             var enhancedInputModels = new List<InputModel>();
             int? currentProjectId = inputModels[0].MProjectId;
             InputModel separatorModel = (inputModels[0].Clone() as InputModel)!;
-            separatorModel.Cells = dates.ToDictionary(d => d, d => (0, string.Empty));
+            separatorModel.Cells = dates.ToDictionary(d => d,
+                d => (0, string.Empty, string.Empty));
             separatorModel.PhaseName = "";
             // 1行目は非表示
             separatorModel.RowClass = "d-none";
@@ -264,7 +265,8 @@ public partial class Index
                 {
                     currentProjectId = model.MProjectId;
                     separatorModel = (model.Clone() as InputModel)!;
-                    separatorModel.Cells = dates.ToDictionary(d => d, d => (0, string.Empty));
+                    separatorModel.Cells = dates.ToDictionary(d => d,
+                            d => (0, string.Empty, string.Empty));
                     separatorModel.PhaseName = "";
                     separatorModel.RowClass = "project";
                     enhancedInputModels.Add(separatorModel);
@@ -286,6 +288,153 @@ public partial class Index
         {
             Console.WriteLine(e.Message);
             return (inputModels, dates);
+        }
+    }
+
+    /// <summary>
+    /// 連続した日付をグループ化する
+    /// </summary>
+    /// <typeparam name="T">データ型</typeparam>
+    /// <param name="source">元データ</param>
+    /// <param name="startSelector">開始日取得関数</param>
+    /// <param name="endSelector">終了日取得関数</param>
+    /// <param name="phaseSelector">工程ID取得関数</param>
+    /// <returns>グループ化されたデータ</returns>
+    private static List<(DateTime start, DateTime end, List<T> items)>
+    GroupContinuous<T>(
+        List<T> source,
+        Func<T, DateTime> startSelector,
+        Func<T, DateTime> endSelector,
+        Func<T, int> phaseSelector)
+    {
+        return source
+            .OrderBy(startSelector)
+            .GroupBy(phaseSelector)
+            .SelectMany(g =>
+            {
+                var list = g.OrderBy(startSelector).ToList();
+                var result = new List<(DateTime, DateTime, List<T>)>();
+
+                DateTime currentStart = startSelector(list[0]).Date;
+                DateTime currentEnd = endSelector(list[0]).Date;
+                var currentItems = new List<T> { list[0] };
+
+                for (int i = 1; i < list.Count; i++)
+                {
+                    var item = list[i];
+                    var start = startSelector(item).Date;
+                    var end = endSelector(item).Date;
+
+                    if (start <= currentEnd.AddDays(1))
+                    {
+                        if (end > currentEnd) currentEnd = end;
+                        currentItems.Add(item);
+                    }
+                    else
+                    {
+                        result.Add((currentStart, currentEnd, currentItems));
+                        currentStart = start;
+                        currentEnd = end;
+                        currentItems = new List<T> { item };
+                    }
+                }
+
+                result.Add((currentStart, currentEnd, currentItems));
+                return result;
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// 翌日有無
+    /// </summary>
+    /// <typeparam name="T">予定・実績</typeparam>
+    /// <param name="date">日付</param>
+    /// <param name="dates">日付リスト</param>
+    /// <param name="phaseItems">工程リスト</param>
+    /// <param name="startSelector">開始日セレクタ</param>
+    /// <param name="endSelector">終了日セレクタ</param>
+    /// <returns>翌日有無</returns>
+    private static bool HasNextDate<T>(
+        DateTime date,
+        List<DateTime> dates,
+        List<T> phaseItems,
+        Func<T, DateTime> startSelector,
+        Func<T, DateTime> endSelector)
+    {
+        if (!dates.Any(d => date < d)) return false;
+
+        return phaseItems.Any(a =>
+            startSelector(a) <= date.AddDays(2) &&
+            date.AddDays(1) <= endSelector(a));
+    }
+
+    /// <summary>
+    /// セルを描画する
+    /// </summary>
+    /// <typeparam name="T">データ型</typeparam>
+    /// <param name="grouped">グループ化されたデータ</param>
+    /// <param name="allItems">すべてのデータ</param>
+    /// <param name="phaseSelector">工程ID取得関数</param>
+    /// <param name="startSelector">開始日取得関数</param>
+    /// <param name="endSelector">終了日取得関数</param>
+    /// <param name="idSelector">ID取得関数</param>
+    /// <param name="tooltipBaseSelector">ツールチップ用ベース文字列取得関数</param>
+    /// <param name="isActual">実績フラグ</param>
+    /// <param name="extraAction">追加処理</param>
+    private static void RenderCells<T>(
+        List<(DateTime start, DateTime end, List<T> items)> grouped,
+        List<T> allItems,
+        Func<T, int> phaseSelector,
+        Func<T, DateTime> startSelector,
+        Func<T, DateTime> endSelector,
+        Func<T, int> idSelector,
+        Func<T, string> tooltipBaseSelector,
+        bool isActual,
+        List<InputModel> inputModels,
+        IEnumerable<DateTime> dates,
+        Action<T, InputModel>? extraAction = null)
+    {
+        // inputModelsをDictionary化して高速化
+        var inputModelDict = inputModels
+            .ToDictionary(m => (m.MPhaseId, m.IsActual), m => m);
+
+        // phaseごとに事前グループ化
+        var itemsByPhase = allItems
+            .GroupBy(phaseSelector)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var dateList = dates.ToList(); // IEnumerable→Listで高速Any
+
+        foreach (var period in grouped)
+        {
+            foreach (var item in period.items)
+            {
+                if (!inputModelDict.TryGetValue((phaseSelector(item), isActual), out var target))
+                    continue;
+
+                var phaseItems = itemsByPhase[phaseSelector(item)];
+
+                foreach (var date in dateList)
+                {
+                    var start = startSelector(item).Date;
+                    var end = endSelector(item).Date;
+
+                    if (date < start || date > end) continue;
+
+                    var nextDateExists = HasNextDate(date, dateList, phaseItems, startSelector, endSelector);
+
+                    var tooltip =
+                        $"{tooltipBaseSelector(item)} : {period.start:MM/dd}～{period.end:MM/dd}";
+
+                    target.Cells[date] = (
+                        idSelector(item),
+                        nextDateExists ? "―" : "―‣",
+                        tooltip);
+                }
+
+                extraAction?.Invoke(item, target);
+            }
         }
     }
 
@@ -498,7 +647,7 @@ public partial class Index
             for (int d = 0; d < dates.Count(); d++)
             {
                 var date = dates.ElementAt(d);
-                var (id, displayText) = inputModel.Cells[date];
+                var (id, displayText, _) = inputModel.Cells[date];
                 sheet.Cell(row, d + StartColumn).Value = displayText;
             }
         }
