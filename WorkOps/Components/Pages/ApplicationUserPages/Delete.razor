@@ -45,6 +45,10 @@
             <dt class="col-sm-2">勤務時間</dt>
             <dd class="col-sm-10">@applicationuser.WorkTimeString</dd>
         </dl>
+        <dl class="row">
+            <dt class="col-sm-2">前日・先週の未入力を通知する</dt>
+            <dd class="col-sm-10">@applicationuser.IsPrevReminderEnabledStr</dd>
+        </dl>
         <EditForm method="post" Model="applicationuser" OnValidSubmit="DeleteApplicationUser" FormName="delete" Enhance>
             <div>
             <InputCheckbox id="isforcedelete" @bind-Value="applicationuser.IsForceDelete" class="form-check-input" />

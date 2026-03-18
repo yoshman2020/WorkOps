@@ -69,3 +69,7 @@ TTableName = new InputModel
 };
 ```
 UpdateMCustomerも同様に修正
+
+# 項目追加
+dotnet ef migrations add AddPrevReminderEnabled --output-dir Data\Migrations --namespace WorkOps.Migrations
+dotnet ef database update

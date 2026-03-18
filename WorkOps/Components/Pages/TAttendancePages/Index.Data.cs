@@ -1,5 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using DocumentFormat.OpenXml.InkML;
+using DocumentFormat.OpenXml.Spreadsheet;
+using Microsoft.EntityFrameworkCore;
 using WorkOps.Models;
+using WorkOps.Services;
 
 namespace WorkOps.Components.Pages.TAttendancePages;
 
@@ -16,12 +19,16 @@ public partial class Index
     /// <returns></returns>
     private List<InputModel> LoadData(DateOnly from, DateOnly to)
     {
+        // 出退勤
         var attendances = LoadAttendances(from, to);
 
+        // 実績
         var actuals = LoadActuals(from, to);
 
+        // 祝日
         var holidays = LoadHolidays(from, to);
 
+        // 実績Dictionary
         var actualLookup = BuildActualLookup(actuals, from, to);
 
         var models = BuildInputModels(
@@ -241,5 +248,43 @@ public partial class Index
             .Aggregate(TimeSpan.Zero, (sum, d) => sum + (d ?? TimeSpan.Zero));
 
         return $"{(int)total.TotalHours:00}:{total.Minutes:00}";
+    }
+
+    /// <summary>
+    /// 前日・先週の未入力通知
+    /// </summary>
+    /// <returns></returns>
+    private async Task<string> LoadNotificationsAsync()
+    {
+        // 前日・先週の未入力を通知する
+        var isPrevReminderEnabled = DbContext.Users
+            .Where(u => u.Id == UserId).FirstOrDefault()?
+            .IsPrevReminderEnabled ?? false;
+
+        if (!isPrevReminderEnabled)
+        {
+            // 通知しない場合
+            return "";
+        }
+
+        var messages = new List<string>();
+
+        var isExistPreviousBusinessDayActual = await PrevInputCheckService
+            .ExistsPreviousBusinessDayActualAsync(UserId);
+
+        if (!isExistPreviousBusinessDayActual)
+        {
+            messages.Add("前日の実績がありません。");
+        }
+
+        var isExistLastWeekReport = await PrevInputCheckService
+            .ExistsLastWeekReportAsync(UserId);
+
+        if (!isExistLastWeekReport)
+        {
+            messages.Add("先週の報告がありません。");
+        }
+
+        return string.Join(Environment.NewLine, messages);
     }
 }

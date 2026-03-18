@@ -53,7 +53,6 @@
         <DisplayPropertyColumn Property="tplanactual => tplanactual.EndDate" Format="MM/dd" />
         <DisplayPropertyColumn Property="tplanactual => tplanactual.TypeName" Class="text-nowrap" />
 
-        @* @foreach (var date in Dates!) *@
         @foreach (var item in Dates!.Select((date, index) => new { date, index }))
         {
             var date = item.date;
@@ -110,3 +109,4 @@
         <span class="btn btn-primary disabled">新規実績</span>
     }
 </p>
+

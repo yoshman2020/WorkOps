@@ -18,7 +18,7 @@
 
 <h1>編集</h1>
 
-<h2>顧客</h2>
+<h2>ユーザー</h2>
 <hr />
 @if (ApplicationUser is null)
 {
@@ -61,6 +61,11 @@ else
                         }
                     </InputSelect>
                     <ValidationMessage For="() => ApplicationUser.WorkTimeId" class="text-danger" />
+                </div>
+                <div>
+                    <InputCheckbox id="isprevreminderenabled" @bind-Value="ApplicationUser.IsPrevReminderEnabled" class="form-check-input" />
+                    <label for="isprevreminderenabled" class="form-label">前日・先週の未入力を通知する</label>
+                    <ValidationMessage For="() => ApplicationUser.IsPrevReminderEnabled" class="text-danger" />
                 </div>
                 <button type="submit" class="btn btn-primary">保存</button>
                 <a href="@resetPasswordUrl" class="btn btn-primary">パスワードリセット</a>
@@ -116,7 +121,8 @@ else
             RoleName = UserService.GetRoleName(role),
             WorkTimeString = workTime != null
                 ? $"{workTime.StartTime} - {workTime.EndTime}"
-                : ""
+                : "",
+            IsPrevReminderEnabled = user!.IsPrevReminderEnabled,
         };
         PropertyUtil.CopyProperties(entity, ApplicationUser);
 
@@ -171,11 +177,13 @@ else
             }
 
             if (user.FullName != ApplicationUser.FullName
-                || user.WorkTimeId != ApplicationUser!.WorkTimeId)
+                || user.WorkTimeId != ApplicationUser!.WorkTimeId
+                || user.IsPrevReminderEnabled != ApplicationUser!.IsPrevReminderEnabled)
             {
                 user.FullName = ApplicationUser.FullName;
                 // 勤務時間変更
                 user.WorkTimeId = ApplicationUser!.WorkTimeId;
+                user.IsPrevReminderEnabled = ApplicationUser!.IsPrevReminderEnabled;
                 DbContext.Update(user);
                 await DbContext.SaveChangesAsync();
             }

@@ -27,6 +27,12 @@ namespace WorkOps.Data
         /// 削除済み
         /// </summary>
         public bool IsDeleted { get; set; } = false;
+
+        /// <summary>
+        /// 前日・先週の未入力を通知する
+        /// </summary>
+        /// <remarks>true: 通知する / false: 通知しない</remarks>
+        public bool IsPrevReminderEnabled { get; set; } = false;
     }
 
 }

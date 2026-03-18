@@ -46,6 +46,17 @@ public class InputModel
     public string WorkTimeString { get; set; } = string.Empty;
 
     /// <summary>
+    /// 前日・先週の未入力を通知する
+    /// </summary>
+    [Display(Name = "前日・先週の未入力を通知する")]
+    public bool IsPrevReminderEnabled { get; set; } = false;
+
+    /// <summary>
+    /// 前日・先週の未入力を通知する文字列
+    /// </summary>
+    public string IsPrevReminderEnabledStr => IsPrevReminderEnabled ? "有効" : "無効";
+
+    /// <summary>
     /// 削除済み
     /// </summary>
     [Display(Name = "削除")]

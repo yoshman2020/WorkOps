@@ -47,6 +47,9 @@ public partial class Index
             }
         }
     }
+
+    // 前日・先週の未入力通知
+    private string notifications = string.Empty;
     private List<InputModel>? InputModels;
     private readonly PaginationState pagination = new() { ItemsPerPage = 31 };
     private List<ApplicationUser> Users = [];
@@ -81,6 +84,9 @@ public partial class Index
 
         DateService.SetThisMonth(ref _dateFrom, ref _dateTo);
         LoadSelectedData();
+
+        // 前日・先週の未入力通知
+        notifications = await LoadNotificationsAsync();
     }
 
     /// <summary>

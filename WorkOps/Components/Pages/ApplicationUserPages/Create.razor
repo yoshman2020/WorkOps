@@ -18,17 +18,17 @@
 @inject WorkOps.Components.Account.IdentityRedirectManager RedirectManager
 @inject WorkOps.Data.ApplicationDbContext DbContext
 
-<PageTitle>Register</PageTitle>
+<PageTitle>新規作成</PageTitle>
 
-<h1>Register</h1>
+<h1>新規作成</h1>
 
+<h2>ユーザー</h2>
+<hr />
 <div class="row">
     <div class="col-lg-6">
         <WorkOps.Components.Account.Shared.StatusMessage Message="@Message" />
         <EditForm Model="Input" asp-route-returnUrl="@ReturnUrl" method="post" OnValidSubmit="RegisterUser" FormName="register">
             <DataAnnotationsValidator />
-            <h2>Create a new account.</h2>
-            <hr />
             <ValidationSummary class="text-danger" role="alert" />
             <div class="form-floating mb-3">
                 <InputText @bind-Value="Input!.FullName" id="Input.FullName" class="form-control" aria-required="true" />
@@ -70,6 +70,11 @@
                 <label for="Input.WorkTimeId">勤務時間</label>
                 <ValidationMessage For="() => Input.WorkTimeId" class="text-danger" />
             </div>
+            <div class="mb-3">
+                <InputCheckbox id="isprevreminderenabled" @bind-Value="Input.IsPrevReminderEnabled" class="form-check-input" />
+                <label for="isprevreminderenabled" class="form-label">前日・先週の未入力を通知する</label>
+                <ValidationMessage For="() => Input.IsPrevReminderEnabled" class="text-danger" />
+            </div>
             <button type="submit" class="w-100 btn btn-lg btn-primary">登録</button>
         </EditForm>
     </div>
@@ -93,6 +98,7 @@
         var user = CreateUser();
         user.FullName = Input!.FullName;
         user.WorkTimeId = Input!.WorkTimeId;
+        user.IsPrevReminderEnabled = Input!.IsPrevReminderEnabled;
 
         await UserStore.SetUserNameAsync(user, Input!.Email, CancellationToken.None);
         var emailStore = GetEmailStore();

@@ -3,6 +3,7 @@
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
+@inject WorkOps.Services.PrevInputCheckService PrevInputCheckService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JS
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
@@ -10,6 +11,8 @@
 <PageTitle>出退勤</PageTitle>
 
 <h1>出退勤</h1>
+
+<ErrorAlert Message="@notifications" />
 
 <form action="/tattendances" data-enhance data-parmanent>
     <div class="row">
@@ -28,13 +31,13 @@
         </div>
         <div class="col-auto">
             <button id="prev" @onclick="() => ChangeMonth(-1)" class="btn btn-primary">
-                &lt;
+           &lt;
             </button>
             <button id="current" @onclick="() => ChangeMonth(0)" class="btn btn-primary">
-                &cir;
+           &cir;
             </button>
             <button id="prev" @onclick="() => ChangeMonth(1)" class="btn btn-primary">
-                &gt;
+           &gt;
             </button>
         </div>
         <div class="col">
