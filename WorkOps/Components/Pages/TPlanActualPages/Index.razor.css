@@ -1,19 +1,29 @@
-﻿::deep tr:nth-child(even) > td:nth-child(n+5) > a {
-    color: red !important;
+﻿::deep .quickgrid th {
+    padding: 0.1rem 0.1rem 0.1rem 0.1rem;
+}
+
+::deep .quickgrid[theme=default] > tbody > tr > td {
+    padding: 0.1rem 0rem 0.1rem 0rem;
+}
+
+::deep .quickgrid[theme=default] > tbody > tr > td.day {
+    width: 25px;
+}
+
+::deep .quickgrid tr td a {
     text-decoration: none;
-    display: inline-block;
-    transform: scaleX(1.5);
+    display: flex;
+    width: 25px;
+    justify-content: flex-end;
+    white-space: nowrap;
+}
+
+::deep tr:nth-child(even) > td:nth-child(n+5) > a {
+    color: red !important;
 }
 
 ::deep tr:nth-child(odd) > td:nth-child(n+5) > a {
     color: blue !important;
-    text-decoration: none;
-    display: inline-block;
-    transform: scaleX(1.5);
-}
-
-::deep td:has(a) {
-    padding: 0 !important;
 }
 
 ::deep .sunday, ::deep .saturday, ::deep .holiday {

@@ -3,9 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.JSInterop;
-using System.Linq;
 using WorkOps.Data;
-using WorkOps.Models;
 using WorkOps.Services;
 
 namespace WorkOps.Components.Pages.TPlanActualPages;
@@ -422,14 +420,15 @@ public partial class Index
 
                     if (date < start || date > end) continue;
 
-                    var nextDateExists = HasNextDate(date, dateList, phaseItems, startSelector, endSelector);
+                    var nextDateExists = HasNextDate(
+                        date, dateList, phaseItems, startSelector, endSelector);
 
                     var tooltip =
                         $"{tooltipBaseSelector(item)} : {period.start:MM/dd}～{period.end:MM/dd}";
 
                     target.Cells[date] = (
                         idSelector(item),
-                        nextDateExists ? "―" : "―‣",
+                        nextDateExists ? "───" : "───‣",
                         tooltip);
                 }
 

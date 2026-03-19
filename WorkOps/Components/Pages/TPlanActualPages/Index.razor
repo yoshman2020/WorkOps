@@ -46,7 +46,7 @@
 </form>
 
 <div>
-    <QuickGrid Class="table table-striped" Items="InputModels!.AsQueryable()" Pagination="pagination" RowClass="GetRowClass">
+    <QuickGrid Class="table table-striped mt-3" Items="InputModels!.AsQueryable()" Pagination="pagination" RowClass="GetRowClass">
         <DisplayPropertyColumn Property="tplanactual => tplanactual.PhaseName" Class="text-nowrap" />
         <DisplayPropertyColumn Property="tplanactual => tplanactual.ManHour" Format="#.#" />
         <DisplayPropertyColumn Property="tplanactual => tplanactual.ProgressRateString" Class="text-nowrap" />
@@ -75,7 +75,7 @@
             item.index == 0 ||
             item.date.Month != Dates!.ElementAt(item.index - 1).Month;
 
-            <TemplateColumn Context="tplanactual" Class="@($"text-center ps-1 pe-0 text-nowrap {className}")">
+            <TemplateColumn Context="tplanactual" Class="@($"overflow-hidden day {className}")">
                 <HeaderTemplate>
                     <span>@date.ToString(isMonthChanged ? "MM/dd" : "dd")</span>
                 </HeaderTemplate>
