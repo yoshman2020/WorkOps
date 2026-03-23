@@ -70,7 +70,20 @@ public sealed class InputModel : BaseInputModel
     /// 作業工数
     /// </summary>
     [Display(Name = "作業工数")]
-    public double ManHour { get; set; } 
+    public double ManHour { get; set; }
+
+    /// <summary>
+    /// 工程別累計作業工数
+    /// </summary>
+    [Display(Name = "工程別累計作業工数")]
+    public double PhaseTotalManHour { get; set; }
+
+    /// <summary>
+    /// 工程別累計作業工数
+    /// </summary>
+    [Display(Name = "(累計)")]
+    public string PhaseTotalManHourStr
+        => PhaseTotalManHour == 0 ? "" : $"({PhaseTotalManHour:#.#})";
 
     /// <summary>
     /// 進捗率文字列

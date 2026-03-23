@@ -229,6 +229,15 @@ public partial class Index
                         target.EndDate = actual.EndDate;
                 });
 
+            // 工程別累計作業工数
+            var phaseTotalManHours = DbContext.TActual
+                .Where(e => string.IsNullOrEmpty(UserId) || e.UserId == UserId)
+                .GroupBy(
+                    a => a.MPhaseId,
+                    a => a.ManHour
+                )
+                .ToDictionary(g => g.Key, g => g.Sum());
+
             // 作業工数
             foreach (var model in inputModels)
             {
@@ -240,6 +249,13 @@ public partial class Index
                         .Sum(a => a.ManHour);
                 }
                 model.ManHour = totalManHour;
+
+                if (model.IsActual)
+                {
+                    // 工程別累計作業工数
+                    model.PhaseTotalManHour = phaseTotalManHours?
+                        .GetValueOrDefault(model.MPhaseId ?? 0) ?? 0;
+                }
             }
 
             // プロジェクトごとに２行ずつ追加
