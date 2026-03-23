@@ -64,7 +64,9 @@
         if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
         {
             NavigationService.NavigateToBack(
-                From, "mcustomerId", $"{MCustomer!.Id}", "mcustomers");
+                From, "mcustomerid", $"{MCustomer!.Id}", "mcustomers",
+                ["mprojectid", "mphaseid"]
+            );
         }
     }
 }

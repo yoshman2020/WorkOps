@@ -30,13 +30,27 @@
                 <ValidationMessage For="() => TPlan.UserName" class="text-danger" />
             </div>
             <div class="mb-3">
+                <label for="customer" class="form-label">顧客</label>
+                <div class="input-group">
+                    <select id="customer" @bind="MCustomerId" @bind:after="OnCustomerValueChange" class="form-select" aria-required="true">
+                        <option value="0">-- 顧客選択 --</option>
+                        @foreach (var customer in Customers)
+                        {
+                            <option value="@customer.Id">@customer.Name</option>
+                        }
+                    </select>
+                    <button type="button" class="btn btn-primary" @onclick="OnBtnNewCustomerClick">新規</button>
+                </div>
+                <ValidationMessage For="() => MCustomerId" class="text-danger" />
+            </div>
+            <div class="mb-3">
                 <label for="project" class="form-label">プロジェクト</label>
                 <div class="input-group">
-                    <select id="project" @onchange="OnProjectValueChange" class="form-select" aria-required="true">
-                        <option value="">-- プロジェクト選択 --</option>
+                    <select id="project" @bind="MProjectId" @bind:after="OnProjectValueChange" class="form-select" aria-required="true">
+                        <option value="0">-- プロジェクト選択 --</option>
                         @foreach (var project in Projects)
                         {
-                            <option value="@project.Id" selected="@(MProjectId == project.Id)">@project.Name</option>
+                            <option value="@project.Id">@project.Name</option>
                         }
                     </select>
                     <button type="button" class="btn btn-primary" @onclick="OnBtnNewProjectClick">新規</button>
@@ -47,7 +61,7 @@
                 <label for="phase" class="form-label">工程</label>
                 <div class="input-group">
                     <InputSelect id="phase" @bind-Value="TPlan!.MPhaseId" class="form-select" aria-required="true">
-                        <option value="">-- 工程選択 --</option>
+                        <option value="0">-- 工程選択 --</option>
                         @foreach (var phase in Phases)
                         {
                             <option value="@phase.Id">@phase.Name</option>
@@ -99,6 +113,11 @@
     [SupplyParameterFromQuery]
     private string? UserId { get; set; }
     /// <summary>
+    /// 顧客ID
+    /// </summary>
+    [SupplyParameterFromQuery]
+    private int? MCustomerId { get; set; }
+    /// <summary>
     /// プロジェクトID
     /// </summary>
     [SupplyParameterFromQuery]
@@ -115,6 +134,7 @@
     private string? From { get; set; }
     [SupplyParameterFromForm]
     private InputModel? TPlan { get; set; }
+    private List<MCustomer> Customers = new();
     private List<MProject> Projects = new();
     private List<MPhase> Phases = new();
 
@@ -125,19 +145,22 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // -----------------------------
+        // 初期ロード
+        // -----------------------------
+        Customers = await DbContext.MCustomer.ToListAsync();
         Projects = await DbContext.MProject.ToListAsync();
+        Phases = new();
         TPlan ??= new();
 
+        // ユーザー取得
         if (string.IsNullOrEmpty(UserId))
         {
             var users = await UserService.GetUsersAsync();
             UserId = await UserService.GetUserIdAsync(users, UserId!);
         }
 
-        // ユーザーIDからユーザーを取得
-        var user = DbContext.Users.Where(u => u.Id == UserId)
-            .FirstOrDefault();
-
+        var user = DbContext.Users.FirstOrDefault(u => u.Id == UserId);
         if (user is null)
         {
             ErrorCode = Models.Errors.ErrorCode.NotFound;
@@ -146,44 +169,121 @@
 
         TPlan.UserName = user.FullName;
 
-        var dateOnlyToday = DateOnly.FromDateTime(DateTime.Today);
+        var today = DateOnly.FromDateTime(DateTime.Today);
 
         // 勤務時間
         var startTime = user.MWorkTime?.StartTime ?? new TimeOnly(9, 0);
         var endTime = user.MWorkTime?.EndTime ?? new TimeOnly(18, 0);
 
-        TPlan.StartDate = dateOnlyToday.ToDateTime(startTime);
-        TPlan.EndDate = dateOnlyToday.ToDateTime(endTime);
+        TPlan.StartDate = today.ToDateTime(startTime);
+        TPlan.EndDate = today.ToDateTime(endTime);
         TPlan.ManHour = user.MWorkTime?.WorkedDuration?.TotalHours ?? 8;
 
+        // -----------------------------
+        // URLパラメータから復元
+        // -----------------------------
+        MCustomerId ??= 0;
+        MProjectId ??= 0;
+        MPhaseId ??= 0;
+
+        // Phase がある場合 → Project と Customer を復元
         if (MPhaseId != null && MPhaseId != 0)
         {
-            MProjectId = await DbContext.MPhase
+            var phase = await DbContext.MPhase
                 .Where(p => p.Id == MPhaseId)
-                .Include(p => p.MProject)
-                .Select(p => p.MProjectId)
                 .FirstOrDefaultAsync();
+
+            if (phase != null)
+            {
+                MProjectId = phase.MProjectId;
+
+                var project = await DbContext.MProject
+                    .Where(p => p.Id == MProjectId)
+                    .FirstOrDefaultAsync();
+
+                if (project != null)
+                {
+                    MCustomerId = project.MCustomerId;
+                }
+            }
+            else
+            {
+                MPhaseId = 0;
+            }
         }
-        if (MPhaseId is not null && MPhaseId != 0)
+        else if (MProjectId != null && MProjectId != 0) // Phase がない場合、Project から Customer を復元
         {
-            Phases = await DbContext.MPhase
-                .Where(p => p.MProjectId == MProjectId)
-                .ToListAsync();
+            var project = await DbContext.MProject
+                .Where(p => p.Id == MProjectId)
+                .FirstOrDefaultAsync();
+
+            if (project != null)
+            {
+                MCustomerId = project.MCustomerId;
+            }
         }
+
+        // -----------------------------
+        // リスト構築
+        // -----------------------------
+        Projects = (MCustomerId != null && MCustomerId != 0)
+            ? await DbContext.MProject
+                .Where(p => p.MCustomerId == MCustomerId)
+                .OrderBy(p => p.Id)
+                .ToListAsync()
+            : await DbContext.MProject
+                .OrderBy(p => p.Id)
+                .ToListAsync();
+
+        Phases = (MProjectId != null && MProjectId != 0)
+            ? await DbContext.MPhase
+                .Where(p => p.MProjectId == MProjectId)
+                .OrderBy(p => p.Id)
+                .ToListAsync()
+            : new List<MPhase>();
+
+        // TPlan に復元（Phase は最後にセットする）
         TPlan.MPhaseId = MPhaseId;
     }
 
-    private async Task OnProjectValueChange(ChangeEventArgs e)
+    private async Task OnCustomerValueChange()
     {
-        if (e.Value is null)
+        if (MCustomerId == null || MCustomerId == 0)
         {
+            Projects = await DbContext.MProject.ToListAsync();
+            MProjectId = 0;
             Phases = new();
             return;
         }
-        MProjectId = int.Parse(e.Value.ToString() ?? "0");
+
+        Projects = await DbContext.MProject
+            .Where(p => p.MCustomerId == MCustomerId)
+            .ToListAsync();
+
+        MProjectId = 0;
+        Phases = new();
+    }
+
+    private async Task OnProjectValueChange()
+    {
+        if (MProjectId == null || MProjectId == 0)
+        {
+            Phases = new();
+            TPlan!.MPhaseId = null;
+            return;
+        }
+
         Phases = await DbContext.MPhase
             .Where(p => p.MProjectId == MProjectId)
             .ToListAsync();
+
+        TPlan!.MPhaseId = null;
+
+        // 顧客も同期
+        MCustomerId = await DbContext.MProject
+            .Where(p => p.Id == MProjectId)
+            .Select(p => p.MCustomerId)
+            .FirstOrDefaultAsync();
     }
 
     /// <summary>
@@ -232,13 +332,20 @@
         }
     }
 
+    private void OnBtnNewCustomerClick(MouseEventArgs args)
+    {
+        NavigationService.NavigateToCreatet("mcustomers");
+    }
+
     private void OnBtnNewProjectClick(MouseEventArgs args)
     {
-        NavigationService.NavigateToCreatet("mprojects");
+        NavigationService.NavigateToCreatet(
+            "mprojects", $"mcustomerid={MCustomerId}");
     }
 
     private void OnBtnNewPhaseClick(MouseEventArgs args)
     {
-        NavigationService.NavigateToCreatet("mphases", $"mprojectid={MProjectId}");
+        NavigationService.NavigateToCreatet(
+            "mphases", $"mprojectid={MProjectId}");
     }
 }

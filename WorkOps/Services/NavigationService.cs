@@ -22,20 +22,48 @@ public class NavigationService(NavigationManager navigationManager)
     /// <param name="query">クエリパラメータ</param>
     public void NavigateToCreatet(string indexPage, string query = "")
     {
-        var currentUrl = Uri.EscapeDataString(_navigationManager.Uri);
-        _navigationManager.NavigateTo(
-            $"/{indexPage}/create?from={currentUrl}&{query}");
+        var currentUrl = _navigationManager.Uri;
+
+        // from パラメータ用に URL エンコード
+        var queryDict = new Dictionary<string, string?>
+        {
+            ["from"] = currentUrl
+        };
+
+        // 呼び出し元から追加クエリがある場合は解析して追加
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            // query が "key=value&key2=value2" の形式で来る前提
+            var extraParams = QueryHelpers.ParseQuery(query)
+                .ToDictionary(
+                    x => x.Key.ToLower(),
+                    x => x.Value.ToString()
+                );
+
+            foreach (var kvp in extraParams)
+            {
+                queryDict[kvp.Key] = kvp.Value;
+            }
+        }
+
+        // NavigateTo 用 URL を生成
+        var newUrl = QueryHelpers.AddQueryString(
+            $"/{indexPage}/create", queryDict);
+
+        _navigationManager.NavigateTo(newUrl);
     }
 
     /// <summary>
     /// 元のページまたは一覧ページへ遷移
     /// </summary>
-    /// <param name="from"></param>
-    /// <param name="idColumn"></param>
-    /// <param name="id"></param>
-    /// <param name="indexPage"></param>
+    /// <param name="from">遷移元のURL</param>
+    /// <param name="idColumn">ID列</param>
+    /// <param name="id">ID</param>
+    /// <param name="indexPage">一覧ページ</param>
+    /// <param name="clearOtherIds">クリアするID列</param>
     public void NavigateToBack(string? from, string? idColumn, string? id,
-        string indexPage)
+        string indexPage,
+        string[]? clearOtherIds = null)
     {
         if (!string.IsNullOrEmpty(from))
         {
@@ -48,11 +76,28 @@ public class NavigationService(NavigationManager navigationManager)
 
             var uri = new Uri(from, UriKind.RelativeOrAbsolute);
             var query = QueryHelpers.ParseQuery(uri.Query);
-            var queryDictionary = query.ToDictionary(
-                x => x.Key, x => x.Value.ToString());
+            // 全て小文字キーに変換
+            var queryDictionary = query
+                .ToDictionary(
+                    x => x.Key.ToLower(),
+                    x => x.Value.ToString()
+                );
 
             // idが既にある場合は置き換える
             queryDictionary[idColumn] = id;
+
+            // 呼び出し元から指定されたIDを0にする
+            if (clearOtherIds != null)
+            {
+                foreach (var key in clearOtherIds)
+                {
+                    if (!string.Equals(key, idColumn,
+                        StringComparison.OrdinalIgnoreCase))
+                    {
+                        queryDictionary[key.ToLower()] = "0";
+                    }
+                }
+            }
 
             var newUrl = QueryHelpers.AddQueryString(
                 uri.GetLeftPart(UriPartial.Path), queryDictionary!);

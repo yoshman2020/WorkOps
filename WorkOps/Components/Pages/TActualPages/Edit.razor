@@ -34,10 +34,24 @@ else
                     <ValidationMessage For="() => TActual.UserName" class="text-danger" />
                 </div>
                 <div class="mb-3">
+                    <label for="customer" class="form-label">顧客</label>
+                    <div class="input-group">
+                        <select id="customer" @bind="MCustomerId" @bind:after="OnCustomerValueChange" class="form-select" aria-required="true">
+                            <option value="0">-- 顧客選択 --</option>
+                            @foreach (var customer in Customers)
+                            {
+                                <option value="@customer.Id">@customer.Name</option>
+                            }
+                        </select>
+                        <button type="button" class="btn btn-primary" @onclick="OnBtnNewCustomerClick">新規</button>
+                    </div>
+                    <ValidationMessage For="() => MCustomerId" class="text-danger" />
+                </div>
+                <div class="mb-3">
                     <label for="project" class="form-label">プロジェクト</label>
                     <div class="input-group">
-                        <select id="project" value="@MProjectId" @onchange="OnProjectValueChange" class="form-select" aria-required="true">
-                            <option value="">-- プロジェクト選択 --</option>
+                        <select id="project" @bind="MProjectId" @bind:after="OnProjectValueChange" class="form-select" aria-required="true">
+                            <option value="0">-- プロジェクト選択 --</option>
                             @foreach (var project in Projects)
                             {
                                 <option value="@project.Id">@project.Name</option>
@@ -51,7 +65,7 @@ else
                     <label for="phase" class="form-label">工程</label>
                     <div class="input-group">
                         <InputSelect id="phase" @bind-Value="TActual.MPhaseId" class="form-select" aria-required="true">
-                            <option value="">-- 工程選択 --</option>
+                            <option value="0">-- 工程選択 --</option>
                             @foreach (var phase in Phases)
                             {
                                 <option value="@phase.Id">@phase.Name</option>
@@ -66,7 +80,7 @@ else
                     <InputDate Type="InputDateType.DateTimeLocal"
                                id="startdate"
                                @bind-Value="TActual.StartDate"
-                               @bind-Value:after="CalculatManHour"
+                               @bind-Value:after="CalculateManHour"
                                class="form-control" />
                     <ValidationMessage For="() => TActual.StartDate" class="text-danger" />
                 </div>
@@ -75,7 +89,7 @@ else
                     <InputDate Type="InputDateType.DateTimeLocal"
                                id="enddate"
                                @bind-Value="TActual.EndDate"
-                               @bind-Value:after="CalculatManHour"
+                               @bind-Value:after="CalculateManHour"
                                class="form-control" />
                     <ValidationMessage For="() => TActual.EndDate" class="text-danger" />
                 </div>
@@ -114,6 +128,11 @@ else
 
 @code {
     /// <summary>
+    /// 顧客ID
+    /// </summary>
+    [SupplyParameterFromQuery]
+    private int? MCustomerId { get; set; }
+    /// <summary>
     /// プロジェクトID
     /// </summary>
     [SupplyParameterFromQuery]
@@ -128,6 +147,7 @@ else
 
     [SupplyParameterFromForm]
     private InputModel? TActual { get; set; }
+    private List<MCustomer> Customers = new();
     private List<MProject> Projects = new();
     private List<MPhase> Phases = new();
 
@@ -144,7 +164,16 @@ else
             return;
         }
 
-        Projects = await DbContext.MProject.ToListAsync();
+        // -----------------------------
+        // 顧客・プロジェクト・工程リスト初期化
+        // -----------------------------
+        Customers = await DbContext.MCustomer.OrderBy(c => c.Id).ToListAsync();
+        Projects = await DbContext.MProject.OrderBy(p => p.Id).ToListAsync();
+        Phases = new();
+
+        // -----------------------------
+        // DBから既存TActual取得
+        // -----------------------------
         (TActual, var entity) = await InputModelService
             .GetInputModelAsync<InputModel, TActual>(Id);
 
@@ -154,58 +183,153 @@ else
             return;
         }
 
-        TActual!.UserName = UserService.GetUserName(entity!.UserId);
+        TActual.UserName = UserService.GetUserName(entity!.UserId);
 
-        if (MPhaseId != null && MPhaseId != 0)
+        // -----------------------------
+        // URLパラメータのIDを優先、未設定の場合はDB値を使用
+        // -----------------------------
+        MCustomerId ??= 0;
+        MProjectId ??= 0;
+        MPhaseId ??= 0;
+
+        // 1. PhaseId がある場合 → Project, Customer を復元
+        if (MPhaseId != 0)
         {
-            MProjectId = await DbContext.MPhase
+            var phase = await DbContext.MPhase
                 .Where(p => p.Id == MPhaseId)
-                .Include(p => p.MProject)
-                .Select(p => p.MProjectId)
                 .FirstOrDefaultAsync();
+
+            if (phase != null)
+            {
+                MProjectId = phase.MProjectId;
+
+                var project = await DbContext.MProject
+                    .Where(p => p.Id == MProjectId)
+                    .FirstOrDefaultAsync();
+
+                if (project != null)
+                    MCustomerId = project.MCustomerId;
+            }
+            else
+            {
+                MPhaseId = 0;
+            }
         }
-        else if (MProjectId != null && MProjectId != 0)
+        // 2. ProjectId がある場合 → Customer を復元
+        else if (MProjectId != 0)
         {
+            var project = await DbContext.MProject
+                .Where(p => p.Id == MProjectId)
+                .FirstOrDefaultAsync();
+
+            if (project != null)
+                MCustomerId = project.MCustomerId;
         }
+        // 3. CustomerId のみある場合 → Project は絞り込み、Phase は空
+        else if (MCustomerId != 0)
+        {
+                Projects = await DbContext.MProject
+                    .Where(p => p.MCustomerId == MCustomerId)
+                .OrderBy(p => p.Id)
+                    .ToListAsync();
+
+            MProjectId = 0;
+            Phases = new List<MPhase>();
+        }
+        // 4. URLにもIDがない場合 → DB値から復元
         else
         {
-            await DbContext.Entry(entity!)
-                .Reference(e => e.MPhase)
-                .LoadAsync();
-            await DbContext.Entry(entity!.MPhase)
-                .Reference(e => e.MProject)
-                .LoadAsync();
-            MProjectId = entity!.MPhase.MProjectId;
-            MPhaseId = entity!.MPhaseId;
+            if (entity.MPhaseId != 0)
+            {
+                MPhaseId = entity.MPhaseId;
+                await DbContext.Entry(entity).Reference(e => e.MPhase).LoadAsync();
+                if (entity.MPhase != null)
+                {
+                MProjectId = entity.MPhase.MProjectId;
+                    await DbContext.Entry(entity.MPhase).Reference(p => p.MProject).LoadAsync();
+                    if (entity.MPhase.MProject != null)
+                MCustomerId = entity.MPhase.MProject.MCustomerId;
+            }
+            }
+            else if (entity.MPhase?.MProjectId != 0)
+            {
+                MProjectId = entity.MPhase.MProjectId;
+                var project = await DbContext.MProject
+                    .Where(p => p.Id == MProjectId)
+                    .FirstOrDefaultAsync();
+
+                if (project != null)
+                    MCustomerId = project.MCustomerId;
+            }
         }
-        if (MPhaseId is not null && MPhaseId != 0)
-        {            
-            Phases = await DbContext.MPhase
+
+        // -----------------------------
+        // プロジェクト・工程リストの絞り込み
+        // -----------------------------
+        Projects = (MCustomerId != 0)
+            ? await DbContext.MProject
+                .Where(p => p.MCustomerId == MCustomerId)
+                .OrderBy(p => p.Id)
+                .ToListAsync()
+            : Projects;
+
+        Phases = (MProjectId != 0)
+            ? await DbContext.MPhase
                 .Where(p => p.MProjectId == MProjectId)
-                .ToListAsync();            
-        }
+                .OrderBy(p => p.Id)
+                .ToListAsync()
+            : new List<MPhase>();
+
+        // -----------------------------
+        // TActual に復元（PhaseId は最後にセット）
+        // -----------------------------
         TActual.MPhaseId = MPhaseId;
     }
 
-    private async Task OnProjectValueChange(ChangeEventArgs e)
+    private async Task OnCustomerValueChange()
     {
-        if (e.Value is null || string.IsNullOrEmpty(e.Value.ToString()))
+        if (MCustomerId == null || MCustomerId == 0)
         {
+            Projects = await DbContext.MProject.ToListAsync();
+            MProjectId = 0;
             Phases = new();
             return;
         }
 
-        int.TryParse(e.Value.ToString(), out var projectId);
-        MProjectId = projectId;
+        Projects = await DbContext.MProject
+            .Where(p => p.MCustomerId == MCustomerId)
+            .ToListAsync();
+
+        MProjectId = 0;
+        Phases = new();
+    }
+
+    private async Task OnProjectValueChange()
+    {
+        if (MProjectId == null || MProjectId == 0)
+        {
+            Phases = new();
+            TActual!.MPhaseId = null;
+            return;
+        }
+
         Phases = await DbContext.MPhase
             .Where(p => p.MProjectId == MProjectId)
             .ToListAsync();
+
+        TActual!.MPhaseId = null;
+
+        // 顧客も同期
+        MCustomerId = await DbContext.MProject
+            .Where(p => p.Id == MProjectId)
+            .Select(p => p.MCustomerId)
+            .FirstOrDefaultAsync();
     }
 
     /// <summary>
     // 作業工数計算
     /// </summary>
-    private async Task CalculatManHour()
+    private async Task CalculateManHour()
     {
         if (TActual is null) return;
 
@@ -268,13 +392,20 @@ else
         return DbContext.TActual.Any(e => e.Id == id);
     }
 
+    private void OnBtnNewCustomerClick(MouseEventArgs args)
+    {
+        NavigationService.NavigateToCreatet("mcustomers");
+    }
+
     private void OnBtnNewProjectClick(MouseEventArgs args)
     {
-        NavigationService.NavigateToCreatet("mprojects");
+        NavigationService.NavigateToCreatet(
+            "mprojects", $"mcustomerid={MCustomerId}");
     }
 
     private void OnBtnNewPhaseClick(MouseEventArgs args)
     {
-        NavigationService.NavigateToCreatet("mphases", $"mprojectid={MProjectId}");
+        NavigationService.NavigateToCreatet(
+            "mphases", $"mprojectid={MProjectId}");
     }
 }
