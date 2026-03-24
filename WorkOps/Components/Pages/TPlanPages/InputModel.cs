@@ -29,9 +29,9 @@ public sealed class InputModel : BaseInputModel
     /// <summary>
     /// 工程ID
     /// </summary>
-    [Required]
+    [Range(1, int.MaxValue, ErrorMessage = "{0}を選択してください。")]
     [Display(Name = "工程")]
-    public int? MPhaseId { get; set; }
+    public int MPhaseId { get; set; }
 
     /// <summary>
     /// 工程

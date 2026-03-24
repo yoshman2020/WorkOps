@@ -271,7 +271,7 @@ else
         // -----------------------------
         // TPlan に復元（PhaseId は最後にセット）
         // -----------------------------
-        TPlan.MPhaseId = MPhaseId;
+        TPlan.MPhaseId = MPhaseId ?? 0;
     }
 
     private async Task OnCustomerValueChange()
@@ -297,7 +297,7 @@ else
         if (MProjectId == null || MProjectId == 0)
         {
             Phases = new();
-            TPlan!.MPhaseId = null;
+            TPlan!.MPhaseId = 0;
             return;
         }
 
@@ -305,7 +305,7 @@ else
             .Where(p => p.MProjectId == MProjectId)
             .ToListAsync();
 
-        TPlan!.MPhaseId = null;
+        TPlan!.MPhaseId = 0;
 
         // 顧客も同期
         MCustomerId = await DbContext.MProject
@@ -340,7 +340,7 @@ else
         var phase = Phases.FirstOrDefault(p => p.Id == TPlan!.MPhaseId)?.Name;
         TPlan!.Name = $"{TPlan.StartDate:yyyy/MM/dd} {project} {phase}";
 
-        if (!context.Validate() || TPlan!.MPhaseId == null)
+        if (!context.Validate() || TPlan!.MPhaseId == 0)
         {
             return;
         }

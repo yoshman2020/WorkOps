@@ -216,10 +216,10 @@
                 if (project != null)
                 {
                     MCustomerId = project.MCustomerId;
-        }
+                }
             }
             else
-        {
+            {
                 MPhaseId = 0;
             }
         }
@@ -255,8 +255,8 @@
             : new List<MPhase>();
 
         // TActual に復元（Phase は最後にセットする）
-        TActual.MPhaseId = MPhaseId;
-        }
+        TActual.MPhaseId = MPhaseId ?? 0;
+    }
 
     private async Task OnCustomerValueChange()
     {
@@ -266,7 +266,7 @@
             MProjectId = 0;
             Phases = new();
             return;
-    }
+        }
 
         Projects = await DbContext.MProject
             .Where(p => p.MCustomerId == MCustomerId)
@@ -275,13 +275,13 @@
         MProjectId = 0;
         Phases = new();
     }
-    
+
     private async Task OnProjectValueChange()
     {
         if (MProjectId == null || MProjectId == 0)
         {
             Phases = new();
-            TActual!.MPhaseId = null;
+            TActual!.MPhaseId = 0;
             return;
         }
 
@@ -289,7 +289,7 @@
             .Where(p => p.MProjectId == MProjectId)
             .ToListAsync();
 
-        TActual!.MPhaseId = null;
+        TActual!.MPhaseId = 0;
 
         // 顧客も同期
         MCustomerId = await DbContext.MProject
@@ -328,7 +328,7 @@
         TActual!.Name = $"{TActual.StartDate:yyyy/MM/dd} {project} {phase}";
         TActual!.UserId = UserId;
 
-        if (!context.Validate() || TActual!.MPhaseId == null)
+        if (!context.Validate() || TActual!.MPhaseId == 0)
         {
             return;
         }
@@ -351,11 +351,13 @@
 
     private void OnBtnNewProjectClick(MouseEventArgs args)
     {
-        NavigationService.NavigateToCreatet("mprojects", $"mcustomerid={MCustomerId}");
+        NavigationService.NavigateToCreatet(
+            "mprojects", $"mcustomerid={MCustomerId}");
     }
 
     private void OnBtnNewPhaseClick(MouseEventArgs args)
     {
-        NavigationService.NavigateToCreatet("mphases", $"mprojectid={MProjectId}");
+        NavigationService.NavigateToCreatet(
+            "mphases", $"mprojectid={MProjectId}");
     }
 }
