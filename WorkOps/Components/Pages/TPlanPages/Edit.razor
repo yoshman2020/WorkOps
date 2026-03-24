@@ -241,7 +241,7 @@ else
             }
             else if (entity.MPhase?.MProjectId != 0)
             {
-                MProjectId = entity.MPhase.MProjectId;
+                MProjectId = entity.MPhase?.MProjectId;
                 var project = await DbContext.MProject
                     .Where(p => p.Id == MProjectId)
                     .FirstOrDefaultAsync();

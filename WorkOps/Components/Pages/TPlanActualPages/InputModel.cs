@@ -67,23 +67,23 @@ public sealed class InputModel : BaseInputModel
     public string? PhaseName { get; set; } = string.Empty;
 
     /// <summary>
-    /// 作業工数
+    /// 工程別期間内作業工数
     /// </summary>
-    [Display(Name = "作業工数")]
+    [Display(Name = "工程別期間内作業工数")]
     public double ManHour { get; set; }
 
     /// <summary>
-    /// 工程別累計作業工数
+    /// 工程別期間内作業工数文字列
     /// </summary>
-    [Display(Name = "工程別累計作業工数")]
-    public double PhaseTotalManHour { get; set; }
+    [Display(Name = "(期間内)")]
+    public string ManHourStr
+        => ManHour == 0 ? "" : $"({ManHour:#.#})";
 
     /// <summary>
     /// 工程別累計作業工数
     /// </summary>
-    [Display(Name = "(累計)")]
-    public string PhaseTotalManHourStr
-        => PhaseTotalManHour == 0 ? "" : $"({PhaseTotalManHour:#.#})";
+    [Display(Name = "作業工数")]
+    public double PhaseTotalManHour { get; set; }
 
     /// <summary>
     /// 進捗率文字列

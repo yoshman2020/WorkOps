@@ -48,8 +48,8 @@
 <div>
     <QuickGrid Class="table table-striped mt-3" Items="InputModels!.AsQueryable()" Pagination="pagination" RowClass="GetRowClass">
         <DisplayPropertyColumn Property="tplanactual => tplanactual.PhaseName" Class="text-nowrap" />
-        <DisplayPropertyColumn Property="tplanactual => tplanactual.ManHour" Format="#.#" />
-        <DisplayPropertyColumn Property="tplanactual => tplanactual.PhaseTotalManHourStr" />
+        <DisplayPropertyColumn Property="tplanactual => tplanactual.PhaseTotalManHour" Format="#.#" />
+        <DisplayPropertyColumn Property="tplanactual => tplanactual.ManHourStr" />
         <DisplayPropertyColumn Property="tplanactual => tplanactual.ProgressRateString" Class="text-nowrap" />
         <DisplayPropertyColumn Property="tplanactual => tplanactual.EndDate" Format="MM/dd" />
         <DisplayPropertyColumn Property="tplanactual => tplanactual.TypeName" Class="text-nowrap" />
@@ -94,7 +94,7 @@
 </div>
 <Paginator State="pagination" />
 <div class="mb-2">
-    作業工数合計：<span class="fw-bold">@TotalManHour</span> H
+    期間内作業工数合計：<span class="fw-bold">@TotalManHour</span> H
 </div>
 <script src="js/download.js"></script>
 
