@@ -58,6 +58,7 @@
         {
             var date = item.date;
             var dow = date.DayOfWeek;
+            // 列のクラス名
             var className = dow switch
             {
                 DayOfWeek.Saturday => "saturday",
@@ -71,21 +72,28 @@
                 className = "holiday";
             }
 
-            // 月のはじめまたは先頭
-            var isMonthChanged =
-            item.index == 0 ||
-            item.date.Month != Dates!.ElementAt(item.index - 1).Month;
+            // 日付フォーマット
+            var dateFormat = "dd";
+            // リンククラス名
+            var aClassName = "";
+            if (item.index == 0
+                || item.date.Month != Dates!.ElementAt(item.index - 1).Month)
+            {
+                // 月のはじめまたは先頭
+                dateFormat = "MM/dd";
+                aClassName = "mmdd";
+            }
 
             <TemplateColumn Context="tplanactual" Class="@($"overflow-hidden day {className}")">
                 <HeaderTemplate>
-                    <span>@date.ToString(isMonthChanged ? "MM/dd" : "dd")</span>
+                    <span>@date.ToString(dateFormat)</span>
                 </HeaderTemplate>
                 <ChildContent>
                     @if (tplanactual.Cells[date].Id != 0)
                     {
                         var baseurl = tplanactual.IsActual ? $"/tactuals" : $"/tplans";
                         var url = $"{baseurl}/edit?id={tplanactual.Cells[date].Id}";
-                        <a href="@url" title="@tplanactual.Cells[date].Tooltip">@tplanactual.Cells[date].DisplayText</a>
+                        <a href="@url" title="@tplanactual.Cells[date].Tooltip" class="@aClassName">@tplanactual.Cells[date].DisplayText</a>
                     }
                 </ChildContent>
             </TemplateColumn>

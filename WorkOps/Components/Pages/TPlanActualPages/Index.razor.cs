@@ -444,7 +444,7 @@ public partial class Index
 
                     target.Cells[date] = (
                         idSelector(item),
-                        nextDateExists ? "───" : "───‣",
+                        nextDateExists ? "────" : "────‣",
                         tooltip);
                 }
 

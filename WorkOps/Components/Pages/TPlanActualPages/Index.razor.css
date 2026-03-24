@@ -22,6 +22,11 @@
     white-space: nowrap;
 }
 
+/* MM/ddで日付が表示されている列のa */
+::deep .quickgrid tr td a.mmdd {
+    width: 45px;
+}
+
 ::deep tr:nth-child(even) > td:nth-child(n+5) > a {
     color: red !important;
 }
