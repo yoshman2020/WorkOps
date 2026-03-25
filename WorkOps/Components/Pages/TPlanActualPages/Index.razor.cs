@@ -50,6 +50,19 @@ public partial class Index
             }
         }
     }
+    private string _projectFilter = string.Empty;
+    private string ProjectFilter
+    {
+        get => _projectFilter;
+        set
+        {
+            if (_projectFilter != value)
+            {
+                _projectFilter = value;
+                LoadSelectedData();
+            }
+        }
+    }
 
     private List<InputModel>? InputModels;
     private readonly PaginationState pagination = new() { ItemsPerPage = 30 };
@@ -88,7 +101,7 @@ public partial class Index
     /// <returns></returns>
     private void LoadSelectedData()
     {
-        (InputModels, Dates) = LoadData(DateFrom, DateTo);
+        (InputModels, Dates) = LoadData(DateFrom, DateTo, ProjectFilter);
     }
 
     /// <summary>
@@ -98,7 +111,7 @@ public partial class Index
     /// <param name="dtTo">終了日</param>
     /// <returns></returns>
     private (List<InputModel>?, IEnumerable<DateTime>?) LoadData(
-        DateOnly? dtFrom, DateOnly? dtTo)
+        DateOnly? dtFrom, DateOnly? dtTo, string projectFilter)
     {
         List<InputModel> inputModels = [];
         IEnumerable<DateTime> dates = [];
@@ -139,6 +152,7 @@ public partial class Index
                     actual.EndDate >= fromDateTime))
                 .Include(phase => phase.MProject)
                 .ThenInclude(phase => phase.MCustomer)
+                .Where(p => p.MProject.Name.Contains(projectFilter))
                 .OrderBy(e => e.MProject.MCustomerId)
                 .ThenBy(e => e.MProjectId)
                 .ThenBy(e => e.Id)
@@ -321,7 +335,7 @@ public partial class Index
         Func<T, DateTime> endSelector,
         Func<T, int> phaseSelector)
     {
-        return source
+        return [.. source
             .OrderBy(startSelector)
             .GroupBy(phaseSelector)
             .SelectMany(g =>
@@ -349,14 +363,13 @@ public partial class Index
                         result.Add((currentStart, currentEnd, currentItems));
                         currentStart = start;
                         currentEnd = end;
-                        currentItems = new List<T> { item };
+                        currentItems = [item];
                     }
                 }
 
                 result.Add((currentStart, currentEnd, currentItems));
                 return result;
-            })
-            .ToList();
+            })];
     }
 
     /// <summary>
@@ -500,7 +513,8 @@ public partial class Index
         var (inputModels, dates) = LoadData(
             new DateOnly(DateFrom.Year, month, 1),
             new DateOnly(DateFrom.Year, month,
-                DateTime.DaysInMonth(DateFrom.Year, month)));
+                DateTime.DaysInMonth(DateFrom.Year, month)),
+            ProjectFilter);
 
         if (inputModels == null || inputModels.Count == 0
             || dates == null || !dates!.Any())

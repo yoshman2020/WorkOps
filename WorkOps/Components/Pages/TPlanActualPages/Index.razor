@@ -39,8 +39,11 @@
                 &gt;
             </button>
         </div>
-        <div class="col">
+        <div class="col-auto">
             <button id="excel" @onclick="DownloadExcelAsync" class="btn btn-primary">Excel出力</button>
+        </div>
+        <div class="col-auto">
+            <InputTextOnInput @bind-Value="ProjectFilter" Placeholder="プロジェクトで絞り込み" />
         </div>
     </div>
 </form>
