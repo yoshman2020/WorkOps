@@ -488,7 +488,10 @@ public partial class Index
 
         for (int month = 1; month <= 12; month++)
         {
-            GenerateExcel(workbook, month);
+            if (!GenerateExcel(workbook, month))
+            {
+                return;
+            }
         }
 
         workbook.Worksheet($"{DateFrom.Month}月").SetTabActive();
@@ -507,7 +510,8 @@ public partial class Index
     /// </summary>
     /// <param name="workbook">WorkBook</param>
     /// <param name="month">月（1～12）</param>
-    private void GenerateExcel(
+    /// <retruns>結果 true:OK false:NG</retruns>
+    private bool GenerateExcel(
         XLWorkbook workbook, int month)
     {
         var (inputModels, dates) = LoadData(
@@ -516,10 +520,10 @@ public partial class Index
                 DateTime.DaysInMonth(DateFrom.Year, month)),
             ProjectFilter);
 
-        if (inputModels == null || inputModels.Count == 0
+        if (inputModels == null
             || dates == null || !dates!.Any())
         {
-            return;
+            return false;
         }
 
         // 不要行削除
@@ -680,6 +684,7 @@ public partial class Index
                 sheet.Cell(row, d + StartColumn).Value = displayText;
             }
         }
+        return true;
     }
 
     private static string? GetRowClass(InputModel tplanactual)
