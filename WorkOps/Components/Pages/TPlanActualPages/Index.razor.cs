@@ -109,6 +109,7 @@ public partial class Index
     /// </summary>
     /// <param name="dtFrom">開始日</param>
     /// <param name="dtTo">終了日</param>
+    /// <param name="projectFilter">プロジェクト名フィルター</param>
     /// <returns></returns>
     private (List<InputModel>?, IEnumerable<DateTime>?) LoadData(
         DateOnly? dtFrom, DateOnly? dtTo, string projectFilter)
@@ -137,26 +138,45 @@ public partial class Index
             var fromDateTime = dateFrom.ToDateTime(TimeOnly.MinValue);
             var toDateTime = dateTo.ToDateTime(TimeOnly.MaxValue);
 
-            // 期間内の工程
-            var phases = DbContext.MPhase
-                .Where(phase => DbContext.TPlan.Any(plan =>
-                    (string.IsNullOrEmpty(UserId) || plan.UserId == UserId) &&
-                    plan.MPhaseId == phase.Id &&
-                    plan.StartDate <= toDateTime &&
-                    plan.EndDate >= fromDateTime)
+            // 期間内の工程のプロジェクト
+            var projectIds = DbContext.MPhase
+                .Where(phase =>
+                    DbContext.TPlan.Any(plan =>
+                        (string.IsNullOrEmpty(UserId) || plan.UserId == UserId) &&
+                        plan.MPhaseId == phase.Id &&
+                        plan.StartDate <= toDateTime &&
+                        plan.EndDate >= fromDateTime)
                     ||
                     DbContext.TActual.Any(actual =>
-                    (string.IsNullOrEmpty(UserId) || actual.UserId == UserId) &&
-                    actual.MPhaseId == phase.Id &&
-                    actual.StartDate <= toDateTime &&
-                    actual.EndDate >= fromDateTime))
-                .Include(phase => phase.MProject)
-                .ThenInclude(phase => phase.MCustomer)
+                        (string.IsNullOrEmpty(UserId) || actual.UserId == UserId) &&
+                        actual.MPhaseId == phase.Id &&
+                        actual.StartDate <= toDateTime &&
+                        actual.EndDate >= fromDateTime)
+                )
+                .Select(p => p.MProjectId)
+                .Distinct();
+
+            // プロジェクトに紐づく工程
+            var phases = DbContext.MPhase
+                .Where(p =>
+                    projectIds.Contains(p.MProjectId) &&
+                    (
+                        // 予定または実績あり
+                        DbContext.TPlan.Any(plan =>
+                            (string.IsNullOrEmpty(UserId) || plan.UserId == UserId) &&
+                            plan.MPhaseId == p.Id)
+                        ||
+                        DbContext.TActual.Any(actual =>
+                            (string.IsNullOrEmpty(UserId) || actual.UserId == UserId) &&
+                            actual.MPhaseId == p.Id)
+                    )
+                )
+                .Include(p => p.MProject)
+                    .ThenInclude(pr => pr.MCustomer)
                 .Where(p => p.MProject.Name.Contains(projectFilter))
                 .OrderBy(e => e.MProject.MCustomerId)
                 .ThenBy(e => e.MProjectId)
-                .ThenBy(e => e.Id)
-                ;
+                .ThenBy(e => e.Id);
 
             // 予定と実績
             inputModels = [.. phases.AsEnumerable()
