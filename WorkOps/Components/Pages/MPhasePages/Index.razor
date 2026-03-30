@@ -14,9 +14,17 @@
 <p>
     <a href="mphases/create">新規作成</a>
 </p>
-<p>
-    <InputTextOnInput @bind-Value="nameFilter" OnInputCallback="LoadDataAsync" Placeholder="工程名で絞り込み" />
-</p>
+<div class="row">
+    <div class="col-auto">
+        <InputTextOnInput @bind-Value="customerFilter" OnInputCallback="LoadDataAsync" Placeholder="顧客名で絞り込み" />
+    </div>
+    <div class="col-auto">
+        <InputTextOnInput @bind-Value="projectFilter" OnInputCallback="LoadDataAsync" Placeholder="プロジェクト名で絞り込み" />
+    </div>
+    <div class="col-auto">
+        <InputTextOnInput @bind-Value="nameFilter" OnInputCallback="LoadDataAsync" Placeholder="工程名で絞り込み" />
+    </div>
+</div>
 
 <QuickGrid Class="table" Items="InputModels" Pagination="pagination">
     <DisplayPropertyColumn Property="mproject => mproject.CustomerName" />
@@ -32,6 +40,8 @@
 <Paginator State="pagination" />
 
 @code {
+    private string? customerFilter;
+    private string? projectFilter;
     private string? nameFilter;
     private IQueryable<InputModel>? InputModels;
     PaginationState pagination = new PaginationState { ItemsPerPage = 20 };
@@ -67,6 +77,21 @@
             entities.Include(e => e.MProject)
                 .ThenInclude(p => p.MCustomer);
 
+            if (!string.IsNullOrWhiteSpace(customerFilter))
+            {
+                entities = entities.Where(
+                    e => e.MProject.MCustomer.Name.Contains(customerFilter));
+            }
+
+            if (!string.IsNullOrWhiteSpace(projectFilter))
+            {
+                entities = entities.Where(
+                    e => e.MProject.Name.Contains(projectFilter));
+            }
+            var filteredIds = entities.Select(e => e.Id).ToHashSet();
+
+            InputModels = InputModels.Where(im => filteredIds.Contains(im.Id));
+
             foreach (var inputModel in InputModels)
             {
                 var names = entities
@@ -80,6 +105,9 @@
                 inputModel.CustomerName = names?.CustomerName;
                 inputModel.ProjectName = names?.ProjectName;
             }
+            InputModels = InputModels
+                .OrderBy(im => im.CustomerName)
+                .ThenBy(im => im.ProjectName);
         }
         catch (Exception ex)
         {
