@@ -139,11 +139,13 @@ public class InputModelService(ApplicationDbContext context,
     /// <param name="isCheckDuplicate">重複チェックをするか？</param>
     /// <returns></returns>
     public async Task<ErrorCode> SaveInputModelAsync<TInputModel, TEntity>(
-        TInputModel inputModel, int id = 0, bool isCheckDuplicate = true)
+        TInputModel inputModel, int id = 0, bool isCheckDuplicate = true,
+        Dictionary<string, object>? conditions = null)
         where TInputModel : BaseInputModel
         where TEntity : BaseEntity, new()
     {
-        if (isCheckDuplicate && await inputModel.IsDuplicateAsync<TEntity>(_context))
+        if (isCheckDuplicate
+            && await inputModel.IsDuplicateAsync<TEntity>(_context, conditions))
         {
             // 名前重複エラー
             return ErrorCode.Duplicate;

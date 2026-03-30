@@ -74,14 +74,30 @@ public class BaseInputModel
     /// </summary>
     /// <typeparam name="TEntity"></typeparam>
     /// <param name="dbContext">DBコンテキスト</param>
+    /// <param name="conditions">追加の条件（カラム名と値のペア）</param>
     /// <returns>名前が重複している場合true</returns>
-    public async Task<bool> IsDuplicateAsync<TEntity>(DbContext dbContext)
+    public async Task<bool> IsDuplicateAsync<TEntity>(DbContext dbContext,
+        Dictionary<string, object>? conditions)
         where TEntity : class
     {
-        return await dbContext.Set<TEntity>()
-            .AnyAsync(e =>
-                EF.Property<string>(e, nameof(Name)) == this.Name &&
-                EF.Property<int>(e, nameof(Id)) != this.Id
-                );
+        var query = dbContext.Set<TEntity>().AsQueryable();
+
+        query = query.Where(e =>
+            EF.Property<string>(e, nameof(Name)) == this.Name &&
+            EF.Property<int>(e, nameof(Id)) != this.Id);
+
+        if (conditions != null)
+        {
+            foreach (var cond in conditions)
+            {
+                var column = cond.Key;
+                var value = cond.Value;
+
+                query = query.Where(e =>
+                    EF.Property<object>(e, column).Equals(value));
+            }
+        }
+
+        return await query.AnyAsync();
     }
 }

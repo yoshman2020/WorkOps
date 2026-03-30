@@ -118,7 +118,10 @@ else
         try
         {
             ErrorCode = await InputModelService
-                .SaveInputModelAsync<InputModel, MPhase>(MPhase!, Id);
+                .SaveInputModelAsync<InputModel, MPhase>(MPhase!, Id,
+                    conditions: new Dictionary<string, object> {
+                        { "MProjectId", MPhase?.MProjectId ?? 0 }
+                    });
         }
         catch (DbUpdateConcurrencyException ex)
         {

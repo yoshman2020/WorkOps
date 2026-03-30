@@ -86,7 +86,10 @@
         try
         {
             ErrorCode = await InputModelService
-                .SaveInputModelAsync<InputModel, MPhase>(MPhase!);
+                .SaveInputModelAsync<InputModel, MPhase>(MPhase!,
+                    conditions: new Dictionary<string, object> {
+                        { "MProjectId", MPhase?.MProjectId ?? 0 }
+                    });
 
             if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
             {
