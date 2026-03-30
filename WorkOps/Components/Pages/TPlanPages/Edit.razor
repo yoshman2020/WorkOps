@@ -8,6 +8,7 @@
 @inject WorkOps.Services.NavigationService NavigationService
 @inject WorkOps.Services.BusinessDayService BusinessDayService
 @inject NavigationManager NavigationManager
+@inject ILogger<Edit> Logger
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>編集</PageTitle>
@@ -146,102 +147,69 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        if (Id == 0)
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
         {
-            NavigationManager.NavigateTo("notfound");
-            return;
-        }
-
-        // -----------------------------
-        // 顧客・プロジェクト・工程リスト初期化
-        // -----------------------------
-        Customers = await DbContext.MCustomer.OrderBy(c => c.Id).ToListAsync();
-        Projects = await DbContext.MProject.OrderBy(p => p.Id).ToListAsync();
-        Phases = new();
-
-        // -----------------------------
-        // DBから既存TPlan取得
-        // -----------------------------
-        (TPlan, var entity) = await InputModelService
-            .GetInputModelAsync<InputModel, TPlan>(Id);
-
-        if (TPlan is null)
-        {
-            NavigationManager.NavigateTo("notfound");
-            return;
-        }
-
-        TPlan.UserName = UserService.GetUserName(entity!.UserId);
-
-        // -----------------------------
-        // URLパラメータのIDを優先、未設定の場合はDB値を使用
-        // -----------------------------
-        MCustomerId ??= 0;
-        MProjectId ??= 0;
-        MPhaseId ??= 0;
-
-        // 1. PhaseId がある場合 → Project, Customer を復元
-        if (MPhaseId != 0)
-        {
-            var phase = await DbContext.MPhase
-                .Where(p => p.Id == MPhaseId)
-                .FirstOrDefaultAsync();
-
-            if (phase != null)
+            if (Id == 0)
             {
-                MProjectId = phase.MProjectId;
+                NavigationManager.NavigateTo("notfound");
+                return;
+            }
 
-                var project = await DbContext.MProject
-                    .Where(p => p.Id == MProjectId)
+            // -----------------------------
+            // 顧客・プロジェクト・工程リスト初期化
+            // -----------------------------
+            Customers = await DbContext.MCustomer.OrderBy(c => c.Id).ToListAsync();
+            Projects = await DbContext.MProject.OrderBy(p => p.Id).ToListAsync();
+            Phases = new();
+
+            // -----------------------------
+            // DBから既存TPlan取得
+            // -----------------------------
+            (TPlan, var entity) = await InputModelService
+                .GetInputModelAsync<InputModel, TPlan>(Id);
+
+            if (TPlan is null)
+            {
+                NavigationManager.NavigateTo("notfound");
+                return;
+            }
+
+            TPlan.UserName = UserService.GetUserName(entity!.UserId);
+
+            // -----------------------------
+            // URLパラメータのIDを優先、未設定の場合はDB値を使用
+            // -----------------------------
+            MCustomerId ??= 0;
+            MProjectId ??= 0;
+            MPhaseId ??= 0;
+
+            // 1. PhaseId がある場合 → Project, Customer を復元
+            if (MPhaseId != 0)
+            {
+                var phase = await DbContext.MPhase
+                    .Where(p => p.Id == MPhaseId)
                     .FirstOrDefaultAsync();
 
-                if (project != null)
-                    MCustomerId = project.MCustomerId;
-            }
-            else
-            {
-                MPhaseId = 0;
-            }
-        }
-        // 2. ProjectId がある場合 → Customer を復元
-        else if (MProjectId != 0)
-        {
-            var project = await DbContext.MProject
-                .Where(p => p.Id == MProjectId)
-                .FirstOrDefaultAsync();
-
-            if (project != null)
-                MCustomerId = project.MCustomerId;
-        }
-        // 3. CustomerId のみある場合 → Project は絞り込み、Phase は空
-        else if (MCustomerId != 0)
-        {
-            Projects = await DbContext.MProject
-                .Where(p => p.MCustomerId == MCustomerId)
-                .OrderBy(p => p.Id)
-                .ToListAsync();
-
-            MProjectId = 0;
-            Phases = new List<MPhase>();
-        }
-        // 4. URLにもIDがない場合 → DB値から復元
-        else
-        {
-            if (entity.MPhaseId != 0)
-            {
-                MPhaseId = entity.MPhaseId;
-                await DbContext.Entry(entity).Reference(e => e.MPhase).LoadAsync();
-                if (entity.MPhase != null)
+                if (phase != null)
                 {
-                    MProjectId = entity.MPhase.MProjectId;
-                    await DbContext.Entry(entity.MPhase).Reference(p => p.MProject).LoadAsync();
-                    if (entity.MPhase.MProject != null)
-                        MCustomerId = entity.MPhase.MProject.MCustomerId;
+                    MProjectId = phase.MProjectId;
+
+                    var project = await DbContext.MProject
+                        .Where(p => p.Id == MProjectId)
+                        .FirstOrDefaultAsync();
+
+                    if (project != null)
+                        MCustomerId = project.MCustomerId;
+                }
+                else
+                {
+                    MPhaseId = 0;
                 }
             }
-            else if (entity.MPhase?.MProjectId != 0)
+            // 2. ProjectId がある場合 → Customer を復元
+            else if (MProjectId != 0)
             {
-                MProjectId = entity.MPhase?.MProjectId;
                 var project = await DbContext.MProject
                     .Where(p => p.Id == MProjectId)
                     .FirstOrDefaultAsync();
@@ -249,29 +217,71 @@ else
                 if (project != null)
                     MCustomerId = project.MCustomerId;
             }
+            // 3. CustomerId のみある場合 → Project は絞り込み、Phase は空
+            else if (MCustomerId != 0)
+            {
+                Projects = await DbContext.MProject
+                    .Where(p => p.MCustomerId == MCustomerId)
+                    .OrderBy(p => p.Id)
+                    .ToListAsync();
+
+                MProjectId = 0;
+                Phases = new List<MPhase>();
+            }
+            // 4. URLにもIDがない場合 → DB値から復元
+            else
+            {
+                if (entity.MPhaseId != 0)
+                {
+                    MPhaseId = entity.MPhaseId;
+                    await DbContext.Entry(entity).Reference(e => e.MPhase).LoadAsync();
+                    if (entity.MPhase != null)
+                    {
+                        MProjectId = entity.MPhase.MProjectId;
+                        await DbContext.Entry(entity.MPhase).Reference(p => p.MProject).LoadAsync();
+                        if (entity.MPhase.MProject != null)
+                            MCustomerId = entity.MPhase.MProject.MCustomerId;
+                    }
+                }
+                else if (entity.MPhase?.MProjectId != 0)
+                {
+                    MProjectId = entity.MPhase?.MProjectId;
+                    var project = await DbContext.MProject
+                        .Where(p => p.Id == MProjectId)
+                        .FirstOrDefaultAsync();
+
+                    if (project != null)
+                        MCustomerId = project.MCustomerId;
+                }
+            }
+
+            // -----------------------------
+            // プロジェクト・工程リストの絞り込み
+            // -----------------------------
+            Projects = (MCustomerId != 0)
+                ? await DbContext.MProject
+                    .Where(p => p.MCustomerId == MCustomerId)
+                    .OrderBy(p => p.Id)
+                    .ToListAsync()
+                : Projects;
+
+            Phases = (MProjectId != 0)
+                ? await DbContext.MPhase
+                    .Where(p => p.MProjectId == MProjectId)
+                    .OrderBy(p => p.Id)
+                    .ToListAsync()
+                : new List<MPhase>();
+
+            // -----------------------------
+            // TPlan に復元（PhaseId は最後にセット）
+            // -----------------------------
+            TPlan.MPhaseId = MPhaseId ?? 0;
         }
-
-        // -----------------------------
-        // プロジェクト・工程リストの絞り込み
-        // -----------------------------
-        Projects = (MCustomerId != 0)
-            ? await DbContext.MProject
-                .Where(p => p.MCustomerId == MCustomerId)
-                .OrderBy(p => p.Id)
-                .ToListAsync()
-            : Projects;
-
-        Phases = (MProjectId != 0)
-            ? await DbContext.MPhase
-                .Where(p => p.MProjectId == MProjectId)
-                .OrderBy(p => p.Id)
-                .ToListAsync()
-            : new List<MPhase>();
-
-        // -----------------------------
-        // TPlan に復元（PhaseId は最後にセット）
-        // -----------------------------
-        TPlan.MPhaseId = MPhaseId ?? 0;
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     private async Task OnCustomerValueChange()
@@ -336,6 +346,7 @@ else
     // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
     private async Task UpdateTPlan(EditContext context)
     {
+        Logger.LogDebug("▽UpdateTPlan");
         var project = Projects.FirstOrDefault(p => p.Id == MProjectId)?.Name;
         var phase = Phases.FirstOrDefault(p => p.Id == TPlan!.MPhaseId)?.Name;
         TPlan!.Name = $"{TPlan.StartDate:yyyy/MM/dd} {project} {phase}";
@@ -350,8 +361,9 @@ else
             ErrorCode = await InputModelService
                 .SaveInputModelAsync<InputModel, TPlan>(TPlan!, Id, false);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (DbUpdateConcurrencyException ex)
         {
+            Logger.LogError(ex, "Exception occurred!");
             if (!TPlanExists(TPlan!.Id))
             {
                 NavigationManager.NavigateTo("notfound");
@@ -367,6 +379,7 @@ else
             NavigationService.NavigateToBack(null, null, null,
                 $"tplanactuals?userid={TPlan.UserId}");
         }
+        Logger.LogDebug("△UpdateTPlan");
     }
 
     private async Task DeleteTPlan()

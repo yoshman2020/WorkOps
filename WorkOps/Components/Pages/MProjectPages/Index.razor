@@ -4,6 +4,7 @@
 @using WorkOps.Models
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
+@inject ILogger<Index> Logger
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>プロジェクト一覧</PageTitle>
@@ -36,28 +37,46 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadDataAsync();
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
+        {
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     private async Task LoadDataAsync()
     {
-        (InputModels, var entities) = await InputModelService
-            .GetInputModelsAsync<InputModel, MProject>();
-
-        if (!string.IsNullOrWhiteSpace(nameFilter))
+        Logger.LogDebug("▼LoadDataAsync");
+        try
         {
-            InputModels = InputModels.Where(
-                im => im.Name.Contains(nameFilter));
+            (InputModels, var entities) = await InputModelService
+                .GetInputModelsAsync<InputModel, MProject>();
+
+            if (!string.IsNullOrWhiteSpace(nameFilter))
+            {
+                InputModels = InputModels.Where(
+                    im => im.Name.Contains(nameFilter));
+            }
+
+            entities.Include(e => e.MCustomer);
+
+            foreach (var inputModel in InputModels)
+            {
+                inputModel.CustomerName = entities
+                    .Where(e => e.Id == inputModel.Id)
+                    .Select(e => e.MCustomer.Name)
+                    .FirstOrDefault();
+            }
         }
-
-        entities.Include(e => e.MCustomer);
-
-        foreach (var inputModel in InputModels)
+        catch (Exception ex)
         {
-            inputModel.CustomerName = entities
-                .Where(e => e.Id == inputModel.Id)
-                .Select(e => e.MCustomer.Name)
-                .FirstOrDefault();
+            Logger.LogError(ex, "Exception occurred!");
         }
+        Logger.LogDebug("▲LoadDataAsync");
     }
 }

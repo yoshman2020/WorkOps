@@ -5,6 +5,7 @@
 @using WorkOps.Models
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
+@inject ILogger<Index> Logger
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>休日・祝祭日一覧</PageTitle>
@@ -56,8 +57,17 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _year = DateTime.Today.Year;
-        await LoadSelectedDataAsync();
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
+        {
+            _year = DateTime.Today.Year;
+            await LoadSelectedDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     /// <summary>
@@ -66,7 +76,16 @@
     /// <returns></returns>
     private async Task LoadSelectedDataAsync()
     {
-        InputModels = await LoadDataAsync(_year);
+        Logger.LogDebug("▼LoadSelectedData");
+        try
+        {
+            InputModels = await LoadDataAsync(_year);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("▲LoadSelectedData");
     }
 
     private async Task<IQueryable<InputModel>> LoadDataAsync(int year)

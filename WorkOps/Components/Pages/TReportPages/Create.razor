@@ -8,6 +8,7 @@
 @inject WorkOps.Services.UserService UserService
 @inject WorkOps.Services.InputModelService InputModelService
 @inject NavigationManager NavigationManager
+@inject ILogger<Create> Logger
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>新規作成</PageTitle>
@@ -129,11 +130,11 @@
         ;
 
         TReport.InputDetailModels.Add(new InputDetailModel
-            {
-                IndexNo = StringUtil.ConvertDigitsToFullWidth(
+        {
+            IndexNo = StringUtil.ConvertDigitsToFullWidth(
                     TReport.InputDetailModels.Count),
-                ProjectName = "その他",
-            });
+            ProjectName = "その他",
+        });
     }
 
     /// <summary>
@@ -174,20 +175,29 @@
     // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
     private async Task AddTReport()
     {
-        var entity = await InputModelService
-            .InputModelToEntity<InputModel, TReport>(TReport!);
-        if (entity is null || TReport is null)
+        Logger.LogDebug("▽AddTReport");
+        try
         {
-            return;
+            var entity = await InputModelService
+                .InputModelToEntity<InputModel, TReport>(TReport!);
+            if (entity is null || TReport is null)
+            {
+                return;
+            }
+            entity.TReportDetails = TReport.InputDetailModels
+               .Select(d =>
+                   {
+                       var detailEntity = new TReportDetail(d);
+                       return detailEntity;
+                   })
+               .ToList();
+            await InputModelService.SaveChangesAsync(entity);
+            NavigationManager.NavigateTo("/treports");
         }
-        entity.TReportDetails = TReport.InputDetailModels
-           .Select(d =>
-               {
-                   var detailEntity = new TReportDetail(d);
-                   return detailEntity;
-               })
-           .ToList();
-        await InputModelService.SaveChangesAsync(entity);
-        NavigationManager.NavigateTo("/treports");
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△AddTReport");
     }
 }

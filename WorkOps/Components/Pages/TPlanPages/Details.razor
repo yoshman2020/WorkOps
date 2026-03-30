@@ -5,6 +5,7 @@
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
 @inject NavigationManager NavigationManager
+@inject ILogger<Details> Logger
 
 <PageTitle>詳細</PageTitle>
 
@@ -58,22 +59,31 @@
 
     protected override async Task OnInitializedAsync()
     {
-        (tplan, var entity) = await InputModelService
-            .GetInputModelAsync<InputModel, TPlan>(Id);
-
-        if (tplan is null || entity is null)
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
         {
-            NavigationManager.NavigateTo("notfound");
-        }
+            (tplan, var entity) = await InputModelService
+                .GetInputModelAsync<InputModel, TPlan>(Id);
 
-        tplan!.UserName = UserService.GetUserName(entity!.UserId);
-        await DbContext.Entry(entity!.MPhase)
-            .Reference(e => e.MProject)
-            .LoadAsync();
-        await DbContext.Entry(entity!)
-            .Reference(e => e.User)
-            .LoadAsync();
-        tplan!.ProjectName = entity!.MPhase.MProject.Name;
-        tplan!.PhaseName = entity!.MPhase.Name;
+            if (tplan is null || entity is null)
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+
+            tplan!.UserName = UserService.GetUserName(entity!.UserId);
+            await DbContext.Entry(entity!.MPhase)
+                .Reference(e => e.MProject)
+                .LoadAsync();
+            await DbContext.Entry(entity!)
+                .Reference(e => e.User)
+                .LoadAsync();
+            tplan!.ProjectName = entity!.MPhase.MProject.Name;
+            tplan!.PhaseName = entity!.MPhase.Name;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 }

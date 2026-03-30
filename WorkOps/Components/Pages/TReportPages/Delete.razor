@@ -6,6 +6,7 @@
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
 @inject NavigationManager NavigationManager
+@inject ILogger<Delete> Logger
 
 <PageTitle>削除</PageTitle>
 
@@ -19,7 +20,8 @@
     {
         <p><em>Loading...</em></p>
     }
-    else {
+    else
+    {
         <dl class="row">
             <dt class="col-sm-2">担当者</dt>
             <dd class="col-sm-10">@treport.UserName</dd>
@@ -66,40 +68,58 @@
 
     protected override async Task OnInitializedAsync()
     {
-        (treport, var entity) = await InputModelService
-            .GetInputModelAsync<InputModel, TReport>(Id);
-
-        if (treport is null || entity is null)
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
         {
-            NavigationManager.NavigateTo("notfound");
+            (treport, var entity) = await InputModelService
+                .GetInputModelAsync<InputModel, TReport>(Id);
+
+            if (treport is null || entity is null)
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+
+            treport!.DateString =
+                $"{treport.Date:yyyy/MM/dd} ～ {treport.Date.AddDays(6):MM/dd}";
+            treport!.UserName = UserService.GetUserName(treport.UserId);
+            await DbContext.Entry(entity!)
+                .Collection(e => e.TReportDetails)
+                .LoadAsync();
+
+            treport.InputDetailModels = entity!.TReportDetails
+                .Select((d, index) =>
+                    {
+                        DbContext.Entry(d)
+                            .Reference(e => e.MProject)
+                            .Load();
+                        var detailModel = new InputDetailModel();
+                        PropertyUtil.CopyProperties(d, detailModel);
+                        detailModel.IndexNo =
+                            StringUtil.ConvertDigitsToFullWidth(index);
+                        detailModel.ProjectName = d.MProject?.Name ?? "その他";
+                        return detailModel;
+                    })
+                    .ToList();
         }
-
-        treport!.DateString =
-            $"{treport.Date:yyyy/MM/dd} ～ {treport.Date.AddDays(6):MM/dd}";
-        treport!.UserName = UserService.GetUserName(treport.UserId);
-        await DbContext.Entry(entity!)
-            .Collection(e => e.TReportDetails)
-            .LoadAsync();
-
-        treport.InputDetailModels = entity!.TReportDetails
-            .Select((d, index) =>
-                {
-                    DbContext.Entry(d)
-                        .Reference(e => e.MProject)
-                        .Load();
-                    var detailModel = new InputDetailModel();
-                    PropertyUtil.CopyProperties(d, detailModel);
-                    detailModel.IndexNo =
-                        StringUtil.ConvertDigitsToFullWidth(index);
-                    detailModel.ProjectName = d.MProject?.Name ?? "その他";
-                    return detailModel;
-                })
-            .ToList();
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     private async Task DeleteTReport()
     {
-        await InputModelService.DeleteInputModelAsync<TReport>(Id);
-        NavigationManager.NavigateTo("/treports");
+        Logger.LogDebug("▽DeleteTReport");
+        try
+        {
+            await InputModelService.DeleteInputModelAsync<TReport>(Id);
+            NavigationManager.NavigateTo("/treports");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△DeleteTReport");
     }
 }

@@ -76,17 +76,26 @@ public partial class Index
     /// <returns></returns>
     protected override async Task OnInitializedAsync()
     {
-        Users = await UserService.GetUsersAsync();
-        UserId = await UserService.GetUserIdAsync(Users, UserId);
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
+        {
+            Users = await UserService.GetUsersAsync();
+            UserId = await UserService.GetUserIdAsync(Users, UserId);
 
-        // 管理者の場合承認可
-        hassNotAuthorized = !await UserService.HasAdminRoleAsync();
+            // 管理者の場合承認可
+            hassNotAuthorized = !await UserService.HasAdminRoleAsync();
 
-        DateService.SetThisMonth(ref _dateFrom, ref _dateTo);
-        LoadSelectedData();
+            DateService.SetThisMonth(ref _dateFrom, ref _dateTo);
+            LoadSelectedData();
 
-        // 前日・先週の未入力通知
-        notifications = await LoadNotificationsAsync();
+            // 前日・先週の未入力通知
+            notifications = await LoadNotificationsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     /// <summary>
@@ -95,7 +104,16 @@ public partial class Index
     /// <returns></returns>
     private void LoadSelectedData()
     {
-        InputModels = LoadData(DateFrom, DateTo);
+        Logger.LogDebug("▼LoadSelectedData");
+        try
+        {
+            InputModels = LoadData(DateFrom, DateTo);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("▲LoadSelectedData");
     }
 
     /// <summary>

@@ -5,6 +5,7 @@
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
 @inject NavigationManager NavigationManager
+@inject ILogger<Details> Logger
 
 <PageTitle>詳細</PageTitle>
 
@@ -56,22 +57,31 @@
 
     protected override async Task OnInitializedAsync()
     {
-        (tattendance, _) = await InputModelService
-            .GetInputModelAsync<InputModel, TAttendance>(Id);
-
-        if (tattendance is null)
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
         {
-            NavigationManager.NavigateTo("notfound");
+            (tattendance, _) = await InputModelService
+                .GetInputModelAsync<InputModel, TAttendance>(Id);
+
+            if (tattendance is null)
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+
+            tattendance!.UserName = UserService.GetUserName(tattendance!.UserId);
+
+            var dateDateTime = tattendance!.Date.ToDateTime(TimeOnly.MinValue);
+            tattendance!.PaidLeaveDurationTime =
+                dateDateTime + tattendance!.PaidLeaveDuration;
+            tattendance!.WorkedDurationTime =
+                dateDateTime + tattendance!.WorkedDuration;
+            tattendance!.OvertimeDurationTime =
+                    dateDateTime + tattendance!.OvertimeDuration;
         }
-
-        tattendance!.UserName = UserService.GetUserName(tattendance!.UserId);
-
-        var dateDateTime = tattendance!.Date.ToDateTime(TimeOnly.MinValue);
-        tattendance!.PaidLeaveDurationTime =
-            dateDateTime + tattendance!.PaidLeaveDuration;
-        tattendance!.WorkedDurationTime =
-            dateDateTime + tattendance!.WorkedDuration;
-        tattendance!.OvertimeDurationTime =
-            dateDateTime + tattendance!.OvertimeDuration;
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 }

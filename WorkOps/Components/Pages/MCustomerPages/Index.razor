@@ -4,6 +4,7 @@
 @using WorkOps.Models
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
+@inject ILogger<Index> Logger
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>顧客一覧</PageTitle>
@@ -35,18 +36,36 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadDataAsync();
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
+        {
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     private async Task LoadDataAsync()
     {
-        (InputModels, _) = await InputModelService
-            .GetInputModelsAsync<InputModel, MCustomer>();
-
-        if (!string.IsNullOrWhiteSpace(nameFilter))
+        Logger.LogDebug("▼LoadDataAsync");
+        try
         {
-            InputModels = InputModels.Where(
-                im => im.Name.Contains(nameFilter));
+            (InputModels, _) = await InputModelService
+                .GetInputModelsAsync<InputModel, MCustomer>();
+
+            if (!string.IsNullOrWhiteSpace(nameFilter))
+            {
+                InputModels = InputModels.Where(
+                    im => im.Name.Contains(nameFilter));
+            }
         }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("▲LoadDataAsync");
     }
 }

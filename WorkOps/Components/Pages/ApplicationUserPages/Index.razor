@@ -11,6 +11,7 @@
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
+@inject ILogger<Index> Logger
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>ユーザー一覧</PageTitle>
@@ -39,29 +40,47 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadDataAsync();
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
+        {
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     private async Task LoadDataAsync()
     {
-        var inputModels = new List<InputModel>();
-        var users = await UserService.GetUsersAsync(true);
-        foreach (var user in users)
+        Logger.LogDebug("▼LoadDataAsync");
+        try
         {
-            var inputModel = new InputModel();
-            PropertyUtil.CopyProperties(user, inputModel);
-            var role = await UserManager.GetRolesAsync(user);
-            inputModel.RoleName = role.Contains("Manager")
-                ? "管理者" : "一般ユーザー";
-            var workTime = DbContext.MWorkTime
-                .Where(workTime => workTime.Id == user.WorkTimeId)
-                .FirstOrDefault();
-            inputModel.WorkTimeString = workTime != null
-                ? $"{workTime.StartTime} - {workTime.EndTime}"
-                : "";
-            inputModels.Add(inputModel);
+            var inputModels = new List<InputModel>();
+            var users = await UserService.GetUsersAsync(true);
+            foreach (var user in users)
+            {
+                var inputModel = new InputModel();
+                PropertyUtil.CopyProperties(user, inputModel);
+                var role = await UserManager.GetRolesAsync(user);
+                inputModel.RoleName = role.Contains("Manager")
+                    ? "管理者" : "一般ユーザー";
+                var workTime = DbContext.MWorkTime
+                    .Where(workTime => workTime.Id == user.WorkTimeId)
+                    .FirstOrDefault();
+                inputModel.WorkTimeString = workTime != null
+                    ? $"{workTime.StartTime} - {workTime.EndTime}"
+                    : "";
+                inputModels.Add(inputModel);
+            }
+            InputModels = inputModels.AsQueryable();
         }
-        InputModels = inputModels.AsQueryable();
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("▲LoadDataAsync");
     }
 
     /// <summary>

@@ -5,6 +5,7 @@
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject NavigationManager NavigationManager
+@inject ILogger<Edit> Logger
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>編集</PageTitle>
@@ -23,7 +24,7 @@ else
         <div class="col-md-4">
             <EditForm method="post" Model="MHoliday" OnValidSubmit="UpdateMHoliday" FormName="edit" Enhance>
                 <DataAnnotationsValidator />
-                <ValidationSummary role="alert"/>
+                <ValidationSummary role="alert" />
                 <ErrorAlert ErrorCode="@ErrorCode" />
                 <div class="mb-3">
                     <label for="date" class="form-label">日付:</label>
@@ -32,7 +33,7 @@ else
                 </div>
                 <div class="mb-3">
                     <label for="name" class="form-label">休日・祝祭日名:</label>
-                    <InputText id="name" @bind-Value="MHoliday.Name" class="form-control" aria-required="true"/>
+                    <InputText id="name" @bind-Value="MHoliday.Name" class="form-control" aria-required="true" />
                     <ValidationMessage For="() => MHoliday.Name" class="text-danger" />
                 </div>
                 <div class="mb-3">
@@ -64,33 +65,44 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        if (Id == 0)
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
         {
-            NavigationManager.NavigateTo("notfound");
-            return;
+            if (Id == 0)
+            {
+                NavigationManager.NavigateTo("notfound");
+                return;
+            }
+
+            (MHoliday, _) = await InputModelService
+                .GetInputModelAsync<InputModel, MHoliday>(Id);
+
+            if (MHoliday is null)
+            {
+                NavigationManager.NavigateTo("notfound");
+                return;
+            }
         }
-
-        (MHoliday, _) = await InputModelService
-            .GetInputModelAsync<InputModel, MHoliday>(Id);
-
-        if (MHoliday is null)
+        catch (Exception ex)
         {
-            NavigationManager.NavigateTo("notfound");
-            return;
+            Logger.LogError(ex, "Exception occurred!");
         }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     // To protect from overposting attacks, enable the specific properties you want to bind to.
     // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
     private async Task UpdateMHoliday()
     {
+        Logger.LogDebug("▽UpdateMHoliday");
         try
         {
             ErrorCode = await InputModelService
                 .SaveInputModelAsync<InputModel, MHoliday>(MHoliday!, Id);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (DbUpdateConcurrencyException ex)
         {
+            Logger.LogError(ex, "Exception occurred!");
             if (!MHolidayExists(MHoliday!.Id))
             {
                 NavigationManager.NavigateTo("notfound");
@@ -105,6 +117,7 @@ else
         {
             NavigationManager.NavigateTo("/mholidays");
         }
+        Logger.LogDebug("△UpdateMHoliday");
     }
 
     private bool MHolidayExists(int id)

@@ -5,6 +5,7 @@
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject NavigationManager NavigationManager
+@inject ILogger<Create> Logger
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>新規作成</PageTitle>
@@ -57,12 +58,21 @@
     // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
     private async Task AddMHoliday()
     {
-        ErrorCode = await InputModelService
-            .SaveInputModelAsync<InputModel, MHoliday>(MHoliday!);
-
-        if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+        Logger.LogDebug("▽AddMHoliday");
+        try
         {
-            NavigationManager.NavigateTo("/mholidays");
+            ErrorCode = await InputModelService
+                .SaveInputModelAsync<InputModel, MHoliday>(MHoliday!);
+
+            if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+            {
+                NavigationManager.NavigateTo("/mholidays");
+            }
         }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△AddMHoliday");
     }
 }

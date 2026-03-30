@@ -5,6 +5,7 @@
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
 @inject NavigationManager NavigationManager
+@inject ILogger<Details> Logger
 
 <PageTitle>詳細</PageTitle>
 
@@ -62,22 +63,31 @@
 
     protected override async Task OnInitializedAsync()
     {
-        (tactual, var entity) = await InputModelService
-            .GetInputModelAsync<InputModel, TActual>(Id);
-
-        if (tactual is null)
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
         {
-            NavigationManager.NavigateTo("notfound");
-        }
+            (tactual, var entity) = await InputModelService
+                .GetInputModelAsync<InputModel, TActual>(Id);
 
-        tactual!.UserName = UserService.GetUserName(tactual.UserId);
-        await DbContext.Entry(entity!.MPhase)
-            .Reference(e => e.MProject)
-            .LoadAsync();
-        await DbContext.Entry(entity!)
-            .Reference(e => e.User)
-            .LoadAsync();
-        tactual!.ProjectName = entity!.MPhase.MProject.Name;
-        tactual!.PhaseName = entity!.MPhase.Name;
+            if (tactual is null)
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+
+            tactual!.UserName = UserService.GetUserName(tactual.UserId);
+            await DbContext.Entry(entity!.MPhase)
+                .Reference(e => e.MProject)
+                .LoadAsync();
+            await DbContext.Entry(entity!)
+                .Reference(e => e.User)
+                .LoadAsync();
+            tactual!.ProjectName = entity!.MPhase.MProject.Name;
+            tactual!.PhaseName = entity!.MPhase.Name;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 }

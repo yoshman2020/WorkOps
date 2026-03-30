@@ -4,6 +4,7 @@
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject NavigationManager NavigationManager
+@inject ILogger<Delete> Logger
 
 <PageTitle>削除</PageTitle>
 
@@ -17,7 +18,8 @@
     {
         <p><em>Loading...</em></p>
     }
-    else {
+    else
+    {
         <dl class="row">
             <dt class="col-sm-2">勤務時間名</dt>
             <dd class="col-sm-10">@mworktime.Name</dd>
@@ -61,18 +63,36 @@
 
     protected override async Task OnInitializedAsync()
     {
-        (mworktime, _) = await InputModelService
-            .GetInputModelAsync<InputModel, MWorkTime>(Id);
-
-        if (mworktime is null)
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
         {
-            NavigationManager.NavigateTo("notfound");
+            (mworktime, _) = await InputModelService
+                .GetInputModelAsync<InputModel, MWorkTime>(Id);
+
+            if (mworktime is null)
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
         }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     private async Task DeleteMWorkTime()
     {
-        await InputModelService.DeleteInputModelAsync<MWorkTime>(Id);
-        NavigationManager.NavigateTo("/mworktimes");
+        Logger.LogDebug("▽DeleteMWorkTime");
+        try
+        {
+            await InputModelService.DeleteInputModelAsync<MWorkTime>(Id);
+            NavigationManager.NavigateTo("/mworktimes");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△DeleteMWorkTime");
     }
 }

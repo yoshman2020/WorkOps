@@ -4,6 +4,7 @@
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject NavigationManager NavigationManager
+@inject ILogger<Details> Logger
 
 <PageTitle>詳細</PageTitle>
 
@@ -16,7 +17,8 @@
     {
         <p><em>Loading...</em></p>
     }
-    else {
+    else
+    {
         <dl class="row">
             <dt class="col-sm-2">プロジェクト</dt>
             <dd class="col-sm-10">@mphase.ProjectName</dd>
@@ -48,21 +50,30 @@
 
     protected override async Task OnInitializedAsync()
     {
-        (mphase, var entity) = await InputModelService
-            .GetInputModelAsync<InputModel, MPhase>(Id);
-
-        if (mphase is null)
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
         {
-            NavigationManager.NavigateTo("notfound");
-        }
+            (mphase, var entity) = await InputModelService
+                .GetInputModelAsync<InputModel, MPhase>(Id);
 
-        await DbContext.Entry(entity!)
-            .Reference(e => e.MProject)
-            .LoadAsync();
-        await DbContext.Entry(entity!.MProject)
-            .Reference(e => e.MCustomer)
-            .LoadAsync();
-        mphase!.CustomerName = entity!.MProject.MCustomer.Name;
-        mphase!.ProjectName = entity!.MProject.Name;
+            if (mphase is null)
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+
+            await DbContext.Entry(entity!)
+                .Reference(e => e.MProject)
+                .LoadAsync();
+            await DbContext.Entry(entity!.MProject)
+                .Reference(e => e.MCustomer)
+                .LoadAsync();
+            mphase!.CustomerName = entity!.MProject.MCustomer.Name;
+            mphase!.ProjectName = entity!.MProject.Name;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 }

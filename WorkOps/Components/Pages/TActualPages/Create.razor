@@ -10,6 +10,7 @@
 @inject WorkOps.Services.BusinessDayService BusinessDayService
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<Create> Logger
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>新規作成</PageTitle>
@@ -157,58 +158,77 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // -----------------------------
-        // 初期ロード
-        // -----------------------------
-        Customers = await DbContext.MCustomer.ToListAsync();
-        Projects = await DbContext.MProject.ToListAsync();
-        Phases = new();
-        TActual ??= new();
-
-        // ユーザー取得
-        if (string.IsNullOrEmpty(UserId))
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
         {
-            var users = await UserService.GetUsersAsync();
-            UserId = await UserService.GetUserIdAsync(users, UserId!);
-        }
+            // -----------------------------
+            // 初期ロード
+            // -----------------------------
+            Customers = await DbContext.MCustomer.ToListAsync();
+            Projects = await DbContext.MProject.ToListAsync();
+            Phases = new();
+            TActual ??= new();
 
-        var user = DbContext.Users.FirstOrDefault(u => u.Id == UserId);
-        if (user is null)
-        {
-            ErrorCode = Models.Errors.ErrorCode.NotFound;
-            return;
-        }
-
-        TActual.UserName = user.FullName;
-
-        var today = DateOnly.FromDateTime(DateTime.Today);
-
-        // 勤務時間
-        var startTime = user.MWorkTime?.StartTime ?? new TimeOnly(9, 0);
-        var endTime = user.MWorkTime?.EndTime ?? new TimeOnly(18, 0);
-
-        TActual.StartDate = today.ToDateTime(startTime);
-        TActual.EndDate = today.ToDateTime(endTime);
-        TActual.ManHour = user.MWorkTime?.WorkedDuration?.TotalHours ?? 8;
-
-        // -----------------------------
-        // URLパラメータから復元
-        // -----------------------------
-        MCustomerId ??= 0;
-        MProjectId ??= 0;
-        MPhaseId ??= 0;
-
-        // Phase がある場合 → Project と Customer を復元
-        if (MPhaseId != null && MPhaseId != 0)
-        {
-            var phase = await DbContext.MPhase
-                .Where(p => p.Id == MPhaseId)
-                .FirstOrDefaultAsync();
-
-            if (phase != null)
+            // ユーザー取得
+            if (string.IsNullOrEmpty(UserId))
             {
-                MProjectId = phase.MProjectId;
+                var users = await UserService.GetUsersAsync();
+                UserId = await UserService.GetUserIdAsync(users, UserId!);
+            }
 
+            var user = DbContext.Users.FirstOrDefault(u => u.Id == UserId);
+            if (user is null)
+            {
+                ErrorCode = Models.Errors.ErrorCode.NotFound;
+                return;
+            }
+
+            TActual.UserName = user.FullName;
+
+            var today = DateOnly.FromDateTime(DateTime.Today);
+
+            // 勤務時間
+            var startTime = user.MWorkTime?.StartTime ?? new TimeOnly(9, 0);
+            var endTime = user.MWorkTime?.EndTime ?? new TimeOnly(18, 0);
+
+            TActual.StartDate = today.ToDateTime(startTime);
+            TActual.EndDate = today.ToDateTime(endTime);
+            TActual.ManHour = user.MWorkTime?.WorkedDuration?.TotalHours ?? 8;
+
+            // -----------------------------
+            // URLパラメータから復元
+            // -----------------------------
+            MCustomerId ??= 0;
+            MProjectId ??= 0;
+            MPhaseId ??= 0;
+
+            // Phase がある場合 → Project と Customer を復元
+            if (MPhaseId != null && MPhaseId != 0)
+            {
+                var phase = await DbContext.MPhase
+                    .Where(p => p.Id == MPhaseId)
+                    .FirstOrDefaultAsync();
+
+                if (phase != null)
+                {
+                    MProjectId = phase.MProjectId;
+
+                    var project = await DbContext.MProject
+                        .Where(p => p.Id == MProjectId)
+                        .FirstOrDefaultAsync();
+
+                    if (project != null)
+                    {
+                        MCustomerId = project.MCustomerId;
+                    }
+                }
+                else
+                {
+                    MPhaseId = 0;
+                }
+            }
+            else if (MProjectId != null && MProjectId != 0) // Phase がない場合、Project から Customer を復元
+            {
                 var project = await DbContext.MProject
                     .Where(p => p.Id == MProjectId)
                     .FirstOrDefaultAsync();
@@ -218,44 +238,34 @@
                     MCustomerId = project.MCustomerId;
                 }
             }
-            else
-            {
-                MPhaseId = 0;
-            }
+
+            // -----------------------------
+            // リスト構築
+            // -----------------------------
+            Projects = (MCustomerId != null && MCustomerId != 0)
+                ? await DbContext.MProject
+                    .Where(p => p.MCustomerId == MCustomerId)
+                    .OrderBy(p => p.Id)
+                    .ToListAsync()
+                : await DbContext.MProject
+                    .OrderBy(p => p.Id)
+                    .ToListAsync();
+
+            Phases = (MProjectId != null && MProjectId != 0)
+                ? await DbContext.MPhase
+                    .Where(p => p.MProjectId == MProjectId)
+                    .OrderBy(p => p.Id)
+                    .ToListAsync()
+                : new List<MPhase>();
+
+            // TActual に復元（Phase は最後にセットする）
+            TActual.MPhaseId = MPhaseId ?? 0;
         }
-        else if (MProjectId != null && MProjectId != 0) // Phase がない場合、Project から Customer を復元
+        catch (Exception ex)
         {
-            var project = await DbContext.MProject
-                .Where(p => p.Id == MProjectId)
-                .FirstOrDefaultAsync();
-
-            if (project != null)
-            {
-                MCustomerId = project.MCustomerId;
-            }
+            Logger.LogError(ex, "Exception occurred!");
         }
-
-        // -----------------------------
-        // リスト構築
-        // -----------------------------
-        Projects = (MCustomerId != null && MCustomerId != 0)
-            ? await DbContext.MProject
-                .Where(p => p.MCustomerId == MCustomerId)
-                .OrderBy(p => p.Id)
-                .ToListAsync()
-            : await DbContext.MProject
-                .OrderBy(p => p.Id)
-                .ToListAsync();
-
-        Phases = (MProjectId != null && MProjectId != 0)
-            ? await DbContext.MPhase
-                .Where(p => p.MProjectId == MProjectId)
-                .OrderBy(p => p.Id)
-                .ToListAsync()
-            : new List<MPhase>();
-
-        // TActual に復元（Phase は最後にセットする）
-        TActual.MPhaseId = MPhaseId ?? 0;
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     private async Task OnCustomerValueChange()
@@ -319,29 +329,38 @@
     // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
     private async Task AddTActual(EditContext context)
     {
-        if (UserId == null)
+        Logger.LogDebug("▽AddTActual");
+        try
         {
-            return;
-        }
-        var project = Projects.FirstOrDefault(p => p.Id == MProjectId)?.Name;
-        var phase = Phases.FirstOrDefault(p => p.Id == TActual!.MPhaseId)?.Name;
-        TActual!.Name = $"{TActual.StartDate:yyyy/MM/dd} {project} {phase}";
-        TActual!.UserId = UserId;
+            if (UserId == null)
+            {
+                return;
+            }
+            var project = Projects.FirstOrDefault(p => p.Id == MProjectId)?.Name;
+            var phase = Phases.FirstOrDefault(p => p.Id == TActual!.MPhaseId)?.Name;
+            TActual!.Name = $"{TActual.StartDate:yyyy/MM/dd} {project} {phase}";
+            TActual!.UserId = UserId;
 
-        if (!context.Validate() || TActual!.MPhaseId == 0)
+            if (!context.Validate() || TActual!.MPhaseId == 0)
+            {
+                return;
+            }
+
+            ErrorCode = await InputModelService
+                .SaveInputModelAsync<InputModel, TActual>(
+                    TActual, isCheckDuplicate: false);
+
+            if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+            {
+                NavigationService.NavigateToBack(From, "tactualid", $"{TActual.Id}",
+                        $"tplanactuals?userid={UserId}");
+            }
+        }
+        catch (Exception ex)
         {
-            return;
+            Logger.LogError(ex, "Exception occurred!");
         }
-
-        ErrorCode = await InputModelService
-            .SaveInputModelAsync<InputModel, TActual>(
-                TActual, isCheckDuplicate: false);
-
-        if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
-        {
-            NavigationService.NavigateToBack(From, "tactualid", $"{TActual.Id}",
-                    $"tplanactuals?userid={UserId}");
-        }
+        Logger.LogDebug("△AddTActual");
     }
 
     private void OnBtnNewCustomerClick(MouseEventArgs args)

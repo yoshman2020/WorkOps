@@ -6,6 +6,7 @@
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.NavigationService NavigationService
 @inject NavigationManager NavigationManager
+@inject ILogger<Create> Logger
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>新規作成</PageTitle>
@@ -24,36 +25,36 @@
                 <InputText id="name" @bind-Value="MWorkTime!.Name" class="form-control" aria-required="true" />
                 <ValidationMessage For="() => MWorkTime.Name" class="text-danger" />
             </div>
-            <ValidationSummary class="text-danger" role="alert"/>
+            <ValidationSummary class="text-danger" role="alert" />
             <div class="mb-3">
-                <label for="starttime" class="form-label">開始時間:</label> 
-                <InputDate Type="InputDateType.Time" id="starttime" @bind-Value="MWorkTime!.StartTime" class="form-control" /> 
-                <ValidationMessage For="() => MWorkTime.StartTime" class="text-danger" /> 
-            </div>        
+                <label for="starttime" class="form-label">開始時間:</label>
+                <InputDate Type="InputDateType.Time" id="starttime" @bind-Value="MWorkTime!.StartTime" class="form-control" />
+                <ValidationMessage For="() => MWorkTime.StartTime" class="text-danger" />
+            </div>
             <div class="mb-3">
-                <label for="endtime" class="form-label">終了時間:</label> 
-                <InputDate Type="InputDateType.Time" id="endtime" @bind-Value="MWorkTime.EndTime" class="form-control" /> 
-                <ValidationMessage For="() => MWorkTime.EndTime" class="text-danger" /> 
-            </div>        
+                <label for="endtime" class="form-label">終了時間:</label>
+                <InputDate Type="InputDateType.Time" id="endtime" @bind-Value="MWorkTime.EndTime" class="form-control" />
+                <ValidationMessage For="() => MWorkTime.EndTime" class="text-danger" />
+            </div>
             <div class="mb-3">
-                <label for="breakstarttime" class="form-label">休憩開始時間:</label> 
+                <label for="breakstarttime" class="form-label">休憩開始時間:</label>
                 <InputDate Type="InputDateType.Time" id="breakstarttime" @bind-Value="MWorkTime.BreakStartTime" class="form-control" />
-                <ValidationMessage For="() => MWorkTime.BreakStartTime" class="text-danger" /> 
-            </div>        
+                <ValidationMessage For="() => MWorkTime.BreakStartTime" class="text-danger" />
+            </div>
             <div class="mb-3">
-                <label for="breakendtime" class="form-label">休憩終了時間:</label> 
+                <label for="breakendtime" class="form-label">休憩終了時間:</label>
                 <InputDate Type="InputDateType.Time" id="breakendtime" @bind-Value="MWorkTime.BreakEndTime" class="form-control" />
-                <ValidationMessage For="() => MWorkTime.BreakEndTime" class="text-danger" /> 
-            </div>        
+                <ValidationMessage For="() => MWorkTime.BreakEndTime" class="text-danger" />
+            </div>
             <div class="mb-3">
-                <label for="workedduration" class="form-label">勤務時間:</label> 
+                <label for="workedduration" class="form-label">勤務時間:</label>
                 <InputDate Type="InputDateType.Time" id="workedduration" @bind-Value="MWorkTime.WorkedDurationTime" class="form-control" />
-                <ValidationMessage For="() => MWorkTime.WorkedDurationTime" class="text-danger" /> 
-            </div>                
+                <ValidationMessage For="() => MWorkTime.WorkedDurationTime" class="text-danger" />
+            </div>
             <div class="mb-3">
-                <label for="remarks" class="form-label">備考:</label> 
-                <InputText id="remarks" @bind-Value="MWorkTime.Remarks" class="form-control" /> 
-                <ValidationMessage For="() => MWorkTime.Remarks" class="text-danger" /> 
+                <label for="remarks" class="form-label">備考:</label>
+                <InputText id="remarks" @bind-Value="MWorkTime.Remarks" class="form-control" />
+                <ValidationMessage For="() => MWorkTime.Remarks" class="text-danger" />
             </div>
             <button type="submit" class="btn btn-primary">登録</button>
         </EditForm>
@@ -78,13 +79,22 @@
     // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
     private async Task AddMWorkTime()
     {
-        MWorkTime!.WorkedDuration = MWorkTime.WorkedDurationTime.ToTimeSpan();
-        ErrorCode = await InputModelService
-            .SaveInputModelAsync<InputModel, MWorkTime>(MWorkTime!);
-
-        if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+        Logger.LogDebug("▽AddMWorkTime");
+        try
         {
-            NavigationManager.NavigateTo("/mworktimes");
+            MWorkTime!.WorkedDuration = MWorkTime.WorkedDurationTime.ToTimeSpan();
+            ErrorCode = await InputModelService
+                .SaveInputModelAsync<InputModel, MWorkTime>(MWorkTime!);
+
+            if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+            {
+                NavigationManager.NavigateTo("/mworktimes");
+            }
         }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△AddMWorkTime");
     }
 }

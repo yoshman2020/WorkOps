@@ -5,8 +5,26 @@ using WorkOps.Components;
 using WorkOps.Components.Account;
 using WorkOps.Data;
 using WorkOps.Services;
+using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+#if DEBUG
+    EnvironmentName = "Development"
+#else
+    EnvironmentName = "Production"
+#endif
+}
+    );
+builder.Host.UseSerilog((context, services, loggerConfiguration) =>
+{
+    loggerConfiguration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext()
+        ;
+});
 
 // Add services to the container.
 builder.Services.AddRazorComponents()

@@ -4,6 +4,7 @@
 @using WorkOps.Models.Errors
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
+@inject ILogger<Delete> Logger
 @inject NavigationManager NavigationManager
 
 <PageTitle>削除</PageTitle>
@@ -18,7 +19,8 @@
     {
         <p><em>Loading...</em></p>
     }
-    else {
+    else
+    {
         <ErrorAlert ErrorCode="@ErrorCode" Args="@Args" />
         <dl class="row">
             <dt class="col-sm-2">顧客名</dt>
@@ -53,27 +55,45 @@
 
     protected override async Task OnInitializedAsync()
     {
-        (mcustomer, _) = await InputModelService
-            .GetInputModelAsync<InputModel, MCustomer>(Id);
-
-        if (mcustomer is null)
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
         {
-            NavigationManager.NavigateTo("notfound");
+            (mcustomer, _) = await InputModelService
+                .GetInputModelAsync<InputModel, MCustomer>(Id);
+
+            if (mcustomer is null)
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
         }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     private async Task DeleteMCustomer()
     {
-        var errorCode = await InputModelService
-            .DeleteInputModelAsync<MCustomer, MProject>(Id);
-
-        if (errorCode == WorkOps.Models.Errors.ErrorCode.None)
+        Logger.LogDebug("▽DeleteMCustomer");
+        try
         {
-            NavigationManager.NavigateTo("/mcustomers");
-            return;
-        }
+            var errorCode = await InputModelService
+                .DeleteInputModelAsync<MCustomer, MProject>(Id);
 
-        Args = ["プロジェクト"];
-        ErrorCode = errorCode;
+            if (errorCode == WorkOps.Models.Errors.ErrorCode.None)
+            {
+                NavigationManager.NavigateTo("/mcustomers");
+                return;
+            }
+
+            Args = ["プロジェクト"];
+            ErrorCode = errorCode;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△DeleteMCustomer");
     }
 }

@@ -12,6 +12,7 @@
 @inject WorkOps.Services.UserService UserService
 @inject WorkOps.Services.InputModelService InputModelService
 @inject NavigationManager NavigationManager
+@inject ILogger<Delete> Logger
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>削除</PageTitle>
@@ -51,7 +52,7 @@
         </dl>
         <EditForm method="post" Model="applicationuser" OnValidSubmit="DeleteApplicationUser" FormName="delete" Enhance>
             <div>
-            <InputCheckbox id="isforcedelete" @bind-Value="applicationuser.IsForceDelete" class="form-check-input" />
+                <InputCheckbox id="isforcedelete" @bind-Value="applicationuser.IsForceDelete" class="form-check-input" />
                 <label for="isforcedelete" class="form-label">関連データも含めて完全に削除</label>
             </div>
             <button type="submit" class="btn btn-danger" disabled="@(applicationuser is null)">削除</button> |
@@ -73,98 +74,116 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var entity = await DbContext.Users
-            .FirstOrDefaultAsync(m => m.Id == Id);
-        if (entity == null)
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
         {
-            NavigationManager.NavigateTo("notfound");
+            var entity = await DbContext.Users
+                .FirstOrDefaultAsync(m => m.Id == Id);
+            if (entity == null)
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+            var role = await UserManager.GetRolesAsync(entity!);
+            var workTime = DbContext.MWorkTime
+                .Where(workTime => workTime.Id == entity!.WorkTimeId)
+                .FirstOrDefault();
+            applicationuser = new InputModel
+            {
+                RoleName = UserService.GetRoleName(role),
+                WorkTimeString = workTime != null
+                    ? $"{workTime.StartTime} - {workTime.EndTime}"
+                    : ""
+            };
+            PropertyUtil.CopyProperties(entity, applicationuser);
         }
-        var role = await UserManager.GetRolesAsync(entity!);
-        var workTime = DbContext.MWorkTime
-            .Where(workTime => workTime.Id == entity!.WorkTimeId)
-            .FirstOrDefault();
-        applicationuser = new InputModel
+        catch (Exception ex)
         {
-            RoleName = UserService.GetRoleName(role),
-            WorkTimeString = workTime != null
-                ? $"{workTime.StartTime} - {workTime.EndTime}"
-                : ""
-        };
-        PropertyUtil.CopyProperties(entity, applicationuser);
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     private async Task DeleteApplicationUser()
     {
-        var user = await UserManager.FindByIdAsync(Id);
-        if (user == null)
+        Logger.LogDebug("▽DeleteApplicationUser");
+        try
         {
+            var user = await UserManager.FindByIdAsync(Id);
+            if (user == null)
+            {
+                NavigationManager.NavigateTo("/applicationusers");
+                return;
+            }
+
+            // 自分は削除不可
+            var users = await UserService.GetUsersAsync();
+            var loginUserId = await UserService.GetUserIdAsync(users, "");
+            if (user.Id == loginUserId)
+            {
+                ErrorMessage = "自分のアカウントは削除できません。";
+                return;
+            }
+
+            // 関連データも含めて削除する場合
+            if (applicationuser!.IsForceDelete)
+            {
+                // 関連レコードを削除
+                DbContext.MCustomer.RemoveRange(DbContext.MCustomer.Where(
+                    e => e.CreatedBy == Id || e.UpdatedBy == Id));
+                DbContext.MHoliday.RemoveRange(DbContext.MHoliday.Where(
+                    e => e.CreatedBy == Id || e.UpdatedBy == Id));
+                DbContext.MPhase.RemoveRange(DbContext.MPhase.Where(
+                    e => e.CreatedBy == Id || e.UpdatedBy == Id));
+                DbContext.MProject.RemoveRange(DbContext.MProject.Where(
+                    e => e.CreatedBy == Id || e.UpdatedBy == Id));
+                DbContext.MWorkTime.RemoveRange(DbContext.MWorkTime.Where(
+                    e => e.CreatedBy == Id || e.UpdatedBy == Id));
+                DbContext.TActual.RemoveRange(DbContext.TActual.Where(
+                    e => e.UserId == Id || e.CreatedBy == Id || e.UpdatedBy == Id));
+                DbContext.TAttendance.RemoveRange(DbContext.TAttendance.Where(
+                    e => e.UserId == Id || e.CreatedBy == Id || e.UpdatedBy == Id));
+                DbContext.TPlan.RemoveRange(DbContext.TPlan.Where(
+                    e => e.UserId == Id || e.CreatedBy == Id || e.UpdatedBy == Id));
+                DbContext.TReportDetail.RemoveRange(DbContext.TReportDetail.Where(
+                    e => e.CreatedBy == Id || e.UpdatedBy == Id));
+                DbContext.TReport.RemoveRange(DbContext.TReport.Where(
+                    e => e.UserId == Id || e.CreatedBy == Id || e.UpdatedBy == Id));
+                await DbContext.SaveChangesAsync();
+            }
+
+            // 登録レコードがないか確認
+            if (!applicationuser!.IsForceDelete &&
+                (await HasRelatedRecords<MCustomer>(Id)
+                || await HasRelatedRecords<MHoliday>(Id)
+                || await HasRelatedRecords<MPhase>(Id)
+                || await HasRelatedRecords<MProject>(Id)
+                || await HasRelatedRecords<MWorkTime>(Id)
+                || await HasRelatedRecords<TActual>(Id)
+                || await HasRelatedRecords<TAttendance>(Id)
+                || await HasRelatedRecords<TAttendance>(Id)
+                || await HasRelatedRecords<TPlan>(Id)
+                || await HasRelatedRecords<TReport>(Id)
+                || await HasRelatedRecords<TReportDetail>(Id))
+            )
+            {
+                // 関連レコードが存在する場合、削除しない
+                user.IsDeleted = true;
+                DbContext.Update(user);
+                await DbContext.SaveChangesAsync();
+                _ = await UserManager.SetLockoutEndDateAsync(
+                    user, DateTimeOffset.MaxValue);
+            }
+            else
+            {
+                var _ = await UserManager.DeleteAsync(user);
+            }
             NavigationManager.NavigateTo("/applicationusers");
-            return;
         }
-
-        // 自分は削除不可
-        var users = await UserService.GetUsersAsync();
-        var loginUserId = await UserService.GetUserIdAsync(users, "");
-        if (user.Id == loginUserId)
+        catch (Exception ex)
         {
-            ErrorMessage = "自分のアカウントは削除できません。";
-            return;
+            Logger.LogError(ex, "Exception occurred!");
         }
-
-        // 関連データも含めて削除する場合
-        if (applicationuser!.IsForceDelete)
-        {
-            // 関連レコードを削除
-            DbContext.MCustomer.RemoveRange(DbContext.MCustomer.Where(
-                e => e.CreatedBy == Id || e.UpdatedBy == Id));
-            DbContext.MHoliday.RemoveRange(DbContext.MHoliday.Where(
-                e => e.CreatedBy == Id || e.UpdatedBy == Id));
-            DbContext.MPhase.RemoveRange(DbContext.MPhase.Where(
-                e => e.CreatedBy == Id || e.UpdatedBy == Id));
-            DbContext.MProject.RemoveRange(DbContext.MProject.Where(
-                e => e.CreatedBy == Id || e.UpdatedBy == Id));
-            DbContext.MWorkTime.RemoveRange(DbContext.MWorkTime.Where(
-                e => e.CreatedBy == Id || e.UpdatedBy == Id));
-            DbContext.TActual.RemoveRange(DbContext.TActual.Where(
-                e => e.UserId == Id || e.CreatedBy == Id || e.UpdatedBy == Id));
-            DbContext.TAttendance.RemoveRange(DbContext.TAttendance.Where(
-                e => e.UserId == Id || e.CreatedBy == Id || e.UpdatedBy == Id));
-            DbContext.TPlan.RemoveRange(DbContext.TPlan.Where(
-                e => e.UserId == Id || e.CreatedBy == Id || e.UpdatedBy == Id));
-            DbContext.TReportDetail.RemoveRange(DbContext.TReportDetail.Where(
-                e => e.CreatedBy == Id || e.UpdatedBy == Id));
-            DbContext.TReport.RemoveRange(DbContext.TReport.Where(
-                e => e.UserId == Id || e.CreatedBy == Id || e.UpdatedBy == Id));
-            await DbContext.SaveChangesAsync();
-        }
-
-        // 登録レコードがないか確認
-        if (!applicationuser!.IsForceDelete &&
-            (await HasRelatedRecords<MCustomer>(Id)
-            || await HasRelatedRecords<MHoliday>(Id)
-            || await HasRelatedRecords<MPhase>(Id)
-            || await HasRelatedRecords<MProject>(Id)
-            || await HasRelatedRecords<MWorkTime>(Id)
-            || await HasRelatedRecords<TActual>(Id)
-            || await HasRelatedRecords<TAttendance>(Id)
-            || await HasRelatedRecords<TAttendance>(Id)
-            || await HasRelatedRecords<TPlan>(Id)
-            || await HasRelatedRecords<TReport>(Id)
-            || await HasRelatedRecords<TReportDetail>(Id))
-        )
-        {
-            // 関連レコードが存在する場合、削除しない
-            user.IsDeleted = true;
-            DbContext.Update(user);
-            await DbContext.SaveChangesAsync();
-            _ = await UserManager.SetLockoutEndDateAsync(
-                user, DateTimeOffset.MaxValue);
-        }
-        else
-        {
-            var _ = await UserManager.DeleteAsync(user);
-        }
-        NavigationManager.NavigateTo("/applicationusers");
+        Logger.LogDebug("△DeleteApplicationUser");
     }
 
     private async Task<bool> HasRelatedRecords<TEntity>(string userId)

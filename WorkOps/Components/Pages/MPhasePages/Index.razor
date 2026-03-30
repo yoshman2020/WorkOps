@@ -4,6 +4,7 @@
 @using WorkOps.Models
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
+@inject ILogger<Index> Logger
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>工程一覧</PageTitle>
@@ -37,35 +38,53 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadDataAsync();
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
+        {
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     private async Task LoadDataAsync()
     {
-        (InputModels, var entities) = await InputModelService
-            .GetInputModelsAsync<InputModel, MPhase>();
-
-        if (!string.IsNullOrWhiteSpace(nameFilter))
+        Logger.LogDebug("▼LoadDataAsync");
+        try
         {
-            InputModels = InputModels.Where(
-                im => im.Name.Contains(nameFilter));
+            (InputModels, var entities) = await InputModelService
+                .GetInputModelsAsync<InputModel, MPhase>();
+
+            if (!string.IsNullOrWhiteSpace(nameFilter))
+            {
+                InputModels = InputModels.Where(
+                    im => im.Name.Contains(nameFilter));
+            }
+
+            entities.Include(e => e.MProject)
+                .ThenInclude(p => p.MCustomer);
+
+            foreach (var inputModel in InputModels)
+            {
+                var names = entities
+                    .Where(e => e.Id == inputModel.Id)
+                    .Select(e => new
+                    {
+                        CustomerName = e.MProject.MCustomer.Name,
+                        ProjectName = e.MProject.Name
+                    })
+                    .FirstOrDefault();
+                inputModel.CustomerName = names?.CustomerName;
+                inputModel.ProjectName = names?.ProjectName;
+            }
         }
-
-        entities.Include(e => e.MProject)
-            .ThenInclude(p => p.MCustomer);
-
-        foreach (var inputModel in InputModels)
+        catch (Exception ex)
         {
-            var names = entities
-                .Where(e => e.Id == inputModel.Id)
-                .Select(e => new
-                {
-                    CustomerName = e.MProject.MCustomer.Name,
-                    ProjectName = e.MProject.Name
-                })
-                .FirstOrDefault();
-            inputModel.CustomerName = names?.CustomerName;
-            inputModel.ProjectName = names?.ProjectName;
+            Logger.LogError(ex, "Exception occurred!");
         }
+        Logger.LogDebug("▲LoadDataAsync");
     }
 }

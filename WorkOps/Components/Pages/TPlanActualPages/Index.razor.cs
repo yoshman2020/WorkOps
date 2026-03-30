@@ -88,11 +88,20 @@ public partial class Index
 
     protected override async Task OnInitializedAsync()
     {
-        Users = await UserService.GetUsersAsync();
-        UserId = await UserService.GetUserIdAsync(Users, UserId);
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
+        {
+            Users = await UserService.GetUsersAsync();
+            UserId = await UserService.GetUserIdAsync(Users, UserId);
 
-        DateService.SetThisMonth(ref _dateFrom, ref _dateTo);
-        LoadSelectedData();
+            DateService.SetThisMonth(ref _dateFrom, ref _dateTo);
+            LoadSelectedData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     /// <summary>
@@ -101,7 +110,16 @@ public partial class Index
     /// <returns></returns>
     private void LoadSelectedData()
     {
-        (InputModels, Dates) = LoadData(DateFrom, DateTo, ProjectFilter);
+        Logger.LogDebug("▼LoadSelectedData");
+        try
+        {
+            (InputModels, Dates) = LoadData(DateFrom, DateTo, ProjectFilter);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("▲LoadSelectedData");
     }
 
     /// <summary>

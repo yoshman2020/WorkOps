@@ -4,6 +4,7 @@
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject NavigationManager NavigationManager
+@inject ILogger<Details> Logger
 
 <PageTitle>詳細</PageTitle>
 
@@ -16,7 +17,8 @@
     {
         <p><em>Loading...</em></p>
     }
-    else {
+    else
+    {
         <dl class="row">
             <dt class="col-sm-2">顧客</dt>
             <dd class="col-sm-10">@mproject.CustomerName</dd>
@@ -48,17 +50,26 @@
 
     protected override async Task OnInitializedAsync()
     {
-        (mproject, var entity) = await InputModelService
-            .GetInputModelAsync<InputModel, MProject>(Id);
-
-        if (mproject is null)
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
         {
-            NavigationManager.NavigateTo("notfound");
-        }
+            (mproject, var entity) = await InputModelService
+                .GetInputModelAsync<InputModel, MProject>(Id);
 
-        await DbContext.Entry(entity!)
-            .Reference(e => e.MCustomer)
-            .LoadAsync();
-        mproject!.CustomerName = entity!.MCustomer.Name;
+            if (mproject is null)
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+
+            await DbContext.Entry(entity!)
+                .Reference(e => e.MCustomer)
+                .LoadAsync();
+            mproject!.CustomerName = entity!.MCustomer.Name;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 }

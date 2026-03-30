@@ -5,6 +5,7 @@
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject NavigationManager NavigationManager
+@inject ILogger<Delete> Logger
 
 <PageTitle>削除</PageTitle>
 
@@ -18,7 +19,8 @@
     {
         <p><em>Loading...</em></p>
     }
-    else {
+    else
+    {
         <ErrorAlert ErrorCode="@ErrorCode" Args="@Args" />
         <dl class="row">
             <dt class="col-sm-2">顧客</dt>
@@ -57,32 +59,50 @@
 
     protected override async Task OnInitializedAsync()
     {
-        (mproject, var entity) = await InputModelService
-            .GetInputModelAsync<InputModel, MProject>(Id);
-
-        if (mproject is null || entity is null)
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
         {
-            NavigationManager.NavigateTo("notfound");
-        }
+            (mproject, var entity) = await InputModelService
+                .GetInputModelAsync<InputModel, MProject>(Id);
 
-        await DbContext.Entry(entity!)
-            .Reference(e => e.MCustomer)
-            .LoadAsync();
-        mproject!.CustomerName = entity!.MCustomer.Name;
+            if (mproject is null || entity is null)
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+
+            await DbContext.Entry(entity!)
+                .Reference(e => e.MCustomer)
+                .LoadAsync();
+            mproject!.CustomerName = entity!.MCustomer.Name;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     private async Task DeleteMProject()
     {
-        var errorCode = await InputModelService
-            .DeleteInputModelAsync<MProject, MPhase, TReport>(Id);
-
-        if (errorCode == WorkOps.Models.Errors.ErrorCode.None)
+        Logger.LogDebug("▽DeleteMProject");
+        try
         {
-            NavigationManager.NavigateTo("/mprojects");
-            return;
-        }
+            var errorCode = await InputModelService
+                .DeleteInputModelAsync<MProject, MPhase, TReport>(Id);
 
-        Args = ["工程"];
-        ErrorCode = errorCode;
+            if (errorCode == WorkOps.Models.Errors.ErrorCode.None)
+            {
+                NavigationManager.NavigateTo("/mprojects");
+                return;
+            }
+
+            Args = ["工程"];
+            ErrorCode = errorCode;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△DeleteMProject");
     }
 }

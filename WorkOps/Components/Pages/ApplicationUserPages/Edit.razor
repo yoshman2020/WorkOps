@@ -12,6 +12,7 @@
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject NavigationManager NavigationManager
+@inject ILogger<Edit> Logger
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>編集</PageTitle>
@@ -91,56 +92,66 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        if (string.IsNullOrEmpty(Id))
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
         {
-            NavigationManager.NavigateTo("notfound");
-            return;
-        }
-
-        var user = await UserManager.FindByIdAsync(Id);
-        if (user == null)
-        {
-            NavigationManager.NavigateTo("notfound");
-            return;
-        }
-
-        var entity = await DbContext.Users
-            .FirstOrDefaultAsync(m => m.Id == Id);
-        if (entity == null)
-        {
-            NavigationManager.NavigateTo("notfound");
-            return;
-        }
-        var role = await UserManager.GetRolesAsync(entity!);
-        var workTime = DbContext.MWorkTime
-            .Where(workTime => workTime.Id == entity!.WorkTimeId)
-            .FirstOrDefault();
-        ApplicationUser = new InputModel
-        {
-            Role = role.FirstOrDefault() ?? "",
-            RoleName = UserService.GetRoleName(role),
-            WorkTimeString = workTime != null
-                ? $"{workTime.StartTime} - {workTime.EndTime}"
-                : "",
-            IsPrevReminderEnabled = user!.IsPrevReminderEnabled,
-        };
-        PropertyUtil.CopyProperties(entity, ApplicationUser);
-
-        var code = await UserManager.GeneratePasswordResetTokenAsync(user!);
-        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-        resetPasswordUrl = NavigationManager.GetUriWithQueryParameters(
-            "/applicationusers/ResetPassword",
-            new Dictionary<string, object?>
+            if (string.IsNullOrEmpty(Id))
             {
-                ["Code"] = code,
-                ["Email"] = ApplicationUser?.Email
-            });
+                NavigationManager.NavigateTo("notfound");
+                return;
+            }
+
+            var user = await UserManager.FindByIdAsync(Id);
+            if (user == null)
+            {
+                NavigationManager.NavigateTo("notfound");
+                return;
+            }
+
+            var entity = await DbContext.Users
+                .FirstOrDefaultAsync(m => m.Id == Id);
+            if (entity == null)
+            {
+                NavigationManager.NavigateTo("notfound");
+                return;
+            }
+            var role = await UserManager.GetRolesAsync(entity!);
+            var workTime = DbContext.MWorkTime
+                .Where(workTime => workTime.Id == entity!.WorkTimeId)
+                .FirstOrDefault();
+            ApplicationUser = new InputModel
+            {
+                Role = role.FirstOrDefault() ?? "",
+                RoleName = UserService.GetRoleName(role),
+                WorkTimeString = workTime != null
+                    ? $"{workTime.StartTime} - {workTime.EndTime}"
+                    : "",
+                IsPrevReminderEnabled = user!.IsPrevReminderEnabled,
+            };
+            PropertyUtil.CopyProperties(entity, ApplicationUser);
+
+            var code = await UserManager.GeneratePasswordResetTokenAsync(user!);
+            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+            resetPasswordUrl = NavigationManager.GetUriWithQueryParameters(
+                "/applicationusers/ResetPassword",
+                new Dictionary<string, object?>
+                {
+                    ["Code"] = code,
+                    ["Email"] = ApplicationUser?.Email
+                });
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     // To protect from overposting attacks, enable the specific properties you want to bind to.
     // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
     private async Task UpdateApplicationUser()
     {
+        Logger.LogDebug("▽UpdateApplicationUser");
         try
         {
             var user = await DbContext.Users
@@ -188,8 +199,9 @@ else
                 await DbContext.SaveChangesAsync();
             }
         }
-        catch (DbUpdateConcurrencyException)
+        catch (DbUpdateConcurrencyException ex)
         {
+            Logger.LogError(ex, "Exception occurred!");
             if (!ApplicationUserExists(ApplicationUser!.Id))
             {
                 NavigationManager.NavigateTo("notfound");
@@ -201,6 +213,7 @@ else
         }
 
         NavigationManager.NavigateTo("/applicationusers");
+        Logger.LogDebug("△UpdateApplicationUser");
     }
 
     private bool ApplicationUserExists(string id)

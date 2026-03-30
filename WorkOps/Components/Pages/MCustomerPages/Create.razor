@@ -6,6 +6,7 @@
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.NavigationService NavigationService
 @inject NavigationManager NavigationManager
+@inject ILogger<Create> Logger
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>新規作成</PageTitle>
@@ -58,15 +59,24 @@
     // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
     private async Task AddMCustomer()
     {
-        ErrorCode = await InputModelService
-            .SaveInputModelAsync<InputModel, MCustomer>(MCustomer!);
-
-        if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+        Logger.LogDebug("▽AddMCustomer");
+        try
         {
-            NavigationService.NavigateToBack(
-                From, "mcustomerid", $"{MCustomer!.Id}", "mcustomers",
-                ["mprojectid", "mphaseid"]
-            );
+            ErrorCode = await InputModelService
+                .SaveInputModelAsync<InputModel, MCustomer>(MCustomer!);
+
+            if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+            {
+                NavigationService.NavigateToBack(
+                    From, "mcustomerid", $"{MCustomer!.Id}", "mcustomers",
+                    ["mprojectid", "mphaseid"]
+                );
+            }
         }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△AddMCustomer");
     }
 }

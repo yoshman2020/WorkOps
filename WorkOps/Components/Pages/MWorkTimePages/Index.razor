@@ -5,6 +5,7 @@
 @using WorkOps.Data
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
+@inject ILogger<Index> Logger
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>勤務時間一覧</PageTitle>
@@ -35,12 +36,30 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadDataAsync();
+        Logger.LogDebug("▽OnInitializedAsync");
+        try
+        {
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnInitializedAsync");
     }
 
     private async Task LoadDataAsync()
     {
-        (InputModels, var entities) = await InputModelService
-            .GetInputModelsAsync<InputModel, MWorkTime>();
+        Logger.LogDebug("▼LoadDataAsync");
+        try
+        {
+            (InputModels, var entities) = await InputModelService
+                .GetInputModelsAsync<InputModel, MWorkTime>();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("▲LoadDataAsync");
     }
 }
