@@ -22,37 +22,37 @@ public sealed class ExcelModel
     /// <summary>
     /// 祝祭日
     /// </summary>
-    [ExcelColumn(Header = "祝祭日", Width = 10.63)]
+    [ExcelColumn(Header = "祝祭日", Width = 11.5)]
     public string HolidayName { get; set; } = string.Empty;
 
     /// <summary>
     /// 開始時間
     /// </summary>
-    [ExcelColumn(Header = "開始時間", Width = 9.88)]
+    [ExcelColumn(Header = "開始時間", Width = 9.0)]
     public string? StartTimeString { get; set; }
 
     /// <summary>
     /// 終了時間
     /// </summary>
-    [ExcelColumn(Header = "終了時間", Width = 9.88)]
+    [ExcelColumn(Header = "終了時間", Width = 9.0)]
     public string? EndTimeString { get; set; }
 
     /// <summary>
     /// 有給時間の時刻表示
     /// </summary>
-    [ExcelColumn(Header = "有給時間", Width = 8.5)]
+    [ExcelColumn(Header = "有給時間", Width = 9.0)]
     public string? PaidLeaveDurationString { get; set; }
 
     /// <summary>
     /// 勤務時間の時刻表示
     /// </summary>
-    [ExcelColumn(Header = "勤務時間", Width = 8.5)]
+    [ExcelColumn(Header = "勤務時間", Width = 9.0)]
     public string? WorkedDurationString { get; set; }
 
     /// <summary>
     /// 時間外の時刻表示
     /// </summary>
-    [ExcelColumn(Header = "時間外", Width = 8.5)]
+    [ExcelColumn(Header = "時間外", Width = 9.0)]
     public string? OvertimeDurationString { get; set; }
 
     /// <summary>
@@ -64,12 +64,12 @@ public sealed class ExcelModel
     /// <summary>
     /// 作業内容午前
     /// </summary>
-    [ExcelColumn(Header = "作業内容午前", Width = 45.13)]
+    [ExcelColumn(Header = "AM", Width = 45.13)]
     public string? WorkDetailAm { get; set; }
 
     /// <summary>
     /// 作業内容午後
     /// </summary>
-    [ExcelColumn(Header = "作業内容午後", Width = 45.13)]
+    [ExcelColumn(Header = "PM", Width = 45.13)]
     public string? WorkDetailPm { get; set; }
 }

@@ -70,7 +70,7 @@ public partial class Index
         sheet.SheetView.ZoomScale = 70;
 
         // フォント設定
-        sheet.Style.Font.FontName = "MS Pゴシック";
+        sheet.Style.Font.FontName = "ＭＳ Ｐゴシック";
         sheet.Style.Font.FontSize = 11;
 
         sheet.Cell("A1").Value = $"{DateFrom:yyyy}年{month}月";
@@ -107,7 +107,11 @@ public partial class Index
         }
 
         // データの最終行と最終列を計算
-        var lastRow = startRow + excelModels!.Count() - 1;
+        var fixedDays = 31;
+        // 実際のデータ末尾
+        var lastRowOfData = startRow + excelModels!.Count() - 1;
+        // 常に31行分確保
+        var lastRow = startRow + fixedDays - 1;
         var lastCol = startCol + typeof(ExcelModel).GetProperties().Length - 1;
 
         // 合計
@@ -143,6 +147,11 @@ public partial class Index
         {
             // 行の高さ
             sheet.Row(row).Height = rowHeight;
+
+            if (lastRowOfData < row)
+            {
+                continue;
+            }
 
             // 色
             // 曜日
@@ -198,21 +207,25 @@ public partial class Index
             = XLAlignmentHorizontalValues.Center;
         sheet.Cell(lastRow + 1, 1).Style.Alignment.Vertical
             = XLAlignmentVerticalValues.Center;
+        sheet.Range(lastRow + 1, 6, lastRow + 1, 8).Style.Alignment.Vertical
+            = XLAlignmentVerticalValues.Center;
         sheet.Cell(lastRow + 2, 3).Style.Alignment.Horizontal
             = XLAlignmentHorizontalValues.Center;
         sheet.Cell(lastRow + 2, 7).Style.Alignment.Horizontal
             = XLAlignmentHorizontalValues.Right;
 
         // 印刷範囲
-        sheet.PageSetup.PrintAreas.Add("A1:I35");
+        var printRange = sheet.Range(1, 1, lastRow + 1, 9);
+        sheet.PageSetup.PrintAreas.Add(printRange.RangeAddress.ToString());
         sheet.PageSetup.FitToPages(1, 1);
 
         // 余白の設定
-        sheet.PageSetup.Margins.Top = 2;
-        sheet.PageSetup.Margins.Bottom = 1;
-        sheet.PageSetup.Margins.Left = 1.5;
-        sheet.PageSetup.Margins.Right = 1;
-        sheet.PageSetup.Margins.Header = 1.3;
-        sheet.PageSetup.Margins.Footer = 1.3;
+        static double cmToInch(double cm) => cm / 2.54;
+        sheet.PageSetup.Margins.Top = cmToInch(2);
+        sheet.PageSetup.Margins.Bottom = cmToInch(1);
+        sheet.PageSetup.Margins.Left = cmToInch(1.5);
+        sheet.PageSetup.Margins.Right = cmToInch(1);
+        sheet.PageSetup.Margins.Header = cmToInch(1.3);
+        sheet.PageSetup.Margins.Footer = cmToInch(1.3);
     }
 }

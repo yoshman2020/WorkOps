@@ -575,7 +575,7 @@ public partial class Index
         sheet.SheetView.ZoomScale = 130;
 
         // フォント設定
-        sheet.Style.Font.FontName = "MS Pゴシック";
+        sheet.Style.Font.FontName = "ＭＳ Ｐゴシック";
         sheet.Style.Font.FontSize = 11;
         sheet.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
         sheet.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
