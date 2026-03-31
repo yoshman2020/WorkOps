@@ -321,8 +321,7 @@ public partial class Index
             separatorModel.RowClass = "d-none";
             enhancedInputModels.Add(separatorModel);
             InputModel separatorModel2 = (separatorModel.Clone() as InputModel)!;
-            separatorModel2.PhaseName =
-                $"{separatorModel.CustomerName} {separatorModel.ProjectName}";
+            separatorModel2.PhaseName = GetProjectName(separatorModel);
             separatorModel2.RowClass = "project2";
             enhancedInputModels.Add(separatorModel2);
             foreach (var model in inputModels)
@@ -337,8 +336,7 @@ public partial class Index
                     separatorModel.RowClass = "project";
                     enhancedInputModels.Add(separatorModel);
                     separatorModel2 = (separatorModel.Clone() as InputModel)!;
-                    separatorModel2.PhaseName =
-                        $"{separatorModel.CustomerName} {separatorModel.ProjectName}";
+                    separatorModel2.PhaseName = GetProjectName(separatorModel);
                     separatorModel2.RowClass = "project2";
                     enhancedInputModels.Add(separatorModel2);
                 }
@@ -355,6 +353,20 @@ public partial class Index
             Console.WriteLine(e.Message);
             return (inputModels, dates);
         }
+    }
+
+    /// <summary>
+    /// プロジェクト名取得
+    /// </summary>
+    /// <param name="model"></param>
+    /// <returns>顧客名＋プロジェクト名（両方その他の場合はその他）</returns>
+    private static string GetProjectName(InputModel model)
+    {
+        if (model.CustomerName == "その他" && model.ProjectName == "その他")
+        {
+            return "その他";
+        }
+        return $"{model.CustomerName} {model.ProjectName}";
     }
 
     /// <summary>
