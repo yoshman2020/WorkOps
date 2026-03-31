@@ -123,18 +123,28 @@
                 IndexNo = StringUtil.ConvertDigitsToFullWidth(index),
                 MProjectId = g.Key,
                 ProjectName =
-                    $"{g.Max(e => e.MPhase.MProject.MCustomer.Name)} {g.Max(e => e.MPhase.MProject.Name)}",
+                    g.Max(e => e.MPhase.MProject.MCustomer.Name) == "その他"
+                    && g.Max(e => e.MPhase.MProject.Name) == "その他"
+                    ? "その他"
+                    : $"{g.Max(e => e.MPhase.MProject.MCustomer.Name)} {g.Max(e => e.MPhase.MProject.Name)}",
                 Description = GetDescription(g),
             })
             .ToList();
         ;
 
-        TReport.InputDetailModels.Add(new InputDetailModel
+        if (!TReport.InputDetailModels.Any(m => m.ProjectName == "その他"))
         {
-            IndexNo = StringUtil.ConvertDigitsToFullWidth(
-                    TReport.InputDetailModels.Count),
-            ProjectName = "その他",
-        });
+            // その他がない場合は追加
+            var projectId = DbContext.MProject
+                .FirstOrDefault(p => p.Name == "その他")?.Id ?? 0;
+            TReport.InputDetailModels.Add(new InputDetailModel
+            {
+                IndexNo = StringUtil.ConvertDigitsToFullWidth(
+                            TReport.InputDetailModels.Count),
+                MProjectId = projectId,
+                ProjectName = "その他",
+            });
+        }
     }
 
     /// <summary>
