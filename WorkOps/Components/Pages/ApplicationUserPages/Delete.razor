@@ -1,6 +1,7 @@
 ﻿@page "/applicationusers/delete"
 @attribute [Authorize(Roles = "Admin,Manager")]
 
+@using Microsoft.AspNetCore.Components.QuickGrid
 @using Microsoft.EntityFrameworkCore
 @using System.Linq.Expressions
 @using WorkOps.Data
@@ -50,6 +51,11 @@
             <dt class="col-sm-2">前日・先週の未入力を通知する</dt>
             <dd class="col-sm-10">@applicationuser.IsPrevReminderEnabledStr</dd>
         </dl>
+        <QuickGrid Items="applicationuser.PaidLeaves.AsQueryable()" TGridItem="InputPaidLeaveModel" Class="dl-quickgrid">
+            <DisplayPropertyColumn Property="paidLeave => paidLeave.GrantedDays" />
+            <DisplayPropertyColumn Property="paidLeave => paidLeave.GrantedDate" />
+            <DisplayPropertyColumn Property="paidLeave => paidLeave.Remarks" />
+        </QuickGrid>
         <EditForm method="post" Model="applicationuser" OnValidSubmit="DeleteApplicationUser" FormName="delete" Enhance>
             <div>
                 <InputCheckbox id="isforcedelete" @bind-Value="applicationuser.IsForceDelete" class="form-check-input" />
@@ -77,6 +83,19 @@
         Logger.LogDebug("▽OnInitializedAsync");
         try
         {
+            if (string.IsNullOrEmpty(Id))
+            {
+                NavigationManager.NavigateTo("notfound");
+                return;
+            }
+
+            var user = await UserManager.FindByIdAsync(Id);
+            if (user == null)
+            {
+                NavigationManager.NavigateTo("notfound");
+                return;
+            }
+
             var entity = await DbContext.Users
                 .FirstOrDefaultAsync(m => m.Id == Id);
             if (entity == null)
@@ -87,12 +106,18 @@
             var workTime = DbContext.MWorkTime
                 .Where(workTime => workTime.Id == entity!.WorkTimeId)
                 .FirstOrDefault();
+            (var queryPaidLeaves, _) = await InputModelService
+                .GetInputModelsAsync<InputPaidLeaveModel, TPaidLeave>();
+            var paidLeaves = queryPaidLeaves
+                .Where(p => p.UserId == entity.Id).ToList();
             applicationuser = new InputModel
             {
                 RoleName = UserService.GetRoleName(role),
                 WorkTimeString = workTime != null
                     ? $"{workTime.StartTime} - {workTime.EndTime}"
-                    : ""
+                    : "",
+                IsPrevReminderEnabled = user!.IsPrevReminderEnabled,
+                PaidLeaves = paidLeaves,
             };
             PropertyUtil.CopyProperties(entity, applicationuser);
         }
@@ -148,8 +173,15 @@
                     e => e.CreatedBy == Id || e.UpdatedBy == Id));
                 DbContext.TReport.RemoveRange(DbContext.TReport.Where(
                     e => e.UserId == Id || e.CreatedBy == Id || e.UpdatedBy == Id));
-                await DbContext.SaveChangesAsync();
+                // 有給休暇は作成したもの
+                DbContext.TPaidLeave.RemoveRange(DbContext.TPaidLeave.Where(
+                    e => e.CreatedBy == Id || e.UpdatedBy == Id));
             }
+
+            // ユーザーの有給休暇は削除
+            DbContext.TPaidLeave.RemoveRange(DbContext.TPaidLeave.Where(
+                e => e.UserId == Id));
+            await DbContext.SaveChangesAsync();
 
             // 登録レコードがないか確認
             if (!applicationuser!.IsForceDelete &&
@@ -160,10 +192,10 @@
                 || await HasRelatedRecords<MWorkTime>(Id)
                 || await HasRelatedRecords<TActual>(Id)
                 || await HasRelatedRecords<TAttendance>(Id)
-                || await HasRelatedRecords<TAttendance>(Id)
                 || await HasRelatedRecords<TPlan>(Id)
+                || await HasRelatedRecords<TReportDetail>(Id)
                 || await HasRelatedRecords<TReport>(Id)
-                || await HasRelatedRecords<TReportDetail>(Id))
+                || await HasRelatedRecords<TPaidLeave>(Id))
             )
             {
                 // 関連レコードが存在する場合、削除しない

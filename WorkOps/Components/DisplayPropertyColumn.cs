@@ -1,6 +1,4 @@
-﻿using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.QuickGrid;
-using Microsoft.AspNetCore.Components.Rendering;
+﻿using Microsoft.AspNetCore.Components.QuickGrid;
 using System.ComponentModel.DataAnnotations;
 using System.Linq.Expressions;
 
@@ -13,12 +11,6 @@ namespace WorkOps.Components;
 /// <typeparam name="TProp">プロパティ</typeparam>
 public class DisplayPropertyColumn<TGridItem, TProp> : PropertyColumn<TGridItem, TProp>
 {
-    ///// <summary>
-    ///// クラス名関数
-    ///// </summary>
-    //[Parameter]
-    //public Func<TGridItem, string>? ClassSelector { get; set; }
-
     /// <summary>
     /// 初期化
     /// </summary>
@@ -70,29 +62,4 @@ public class DisplayPropertyColumn<TGridItem, TProp> : PropertyColumn<TGridItem,
 
         base.OnParametersSet();
     }
-
-    ///// <summary>
-    ///// セルのレンダリング
-    ///// </summary>
-    ///// <param name="builder"></param>
-    ///// <param name="item"></param>
-    //protected override void CellContent(RenderTreeBuilder builder, TGridItem item)
-    //{
-    //    // クラス名
-    //    var className = ClassSelector?.Invoke(item);
-    //    if (className == null)
-    //    {
-    //        // 設定されていない場合はそのまま
-    //        base.CellContent(builder, item);
-    //        return;
-    //    }
-
-    //    builder.OpenElement(0, "div");
-    //    builder.AddAttribute(1, "class", className);
-
-    //    base.CellContent(builder, item);
-
-    //    builder.CloseElement(); // </div>
-
-    //}
 }

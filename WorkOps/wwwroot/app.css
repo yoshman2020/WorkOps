@@ -63,3 +63,9 @@ h1:focus {
     height: 10rem;
     width: 50em;
 }
+
+/* Ú×‰æ–Ê‚Ìdl‚Ì‰º‚ÉQuickGrid‚ğ”z’u‚·‚é */
+.dl-quickgrid {
+    margin-left: -0.5rem;
+    margin-top: -1rem;
+}

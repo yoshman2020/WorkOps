@@ -1,6 +1,7 @@
 ﻿@page "/applicationusers/edit"
 @attribute [Authorize(Roles = "Admin,Manager")]
 
+@using Microsoft.AspNetCore.Components.QuickGrid
 @using Microsoft.AspNetCore.WebUtilities
 @using Microsoft.EntityFrameworkCore
 @using System.Text
@@ -63,10 +64,27 @@ else
                     </InputSelect>
                     <ValidationMessage For="() => ApplicationUser.WorkTimeId" class="text-danger" />
                 </div>
-                <div>
+                <div class="mb-3">
                     <InputCheckbox id="isprevreminderenabled" @bind-Value="ApplicationUser.IsPrevReminderEnabled" class="form-check-input" />
                     <label for="isprevreminderenabled" class="form-label">前日・先週の未入力を通知する</label>
                     <ValidationMessage For="() => ApplicationUser.IsPrevReminderEnabled" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <QuickGrid Class="table" Items="ApplicationUser.PaidLeaves.AsQueryable()" TGridItem="InputPaidLeaveModel">
+                        <TemplateColumn Context="paidLeave" Title="有給休暇日数">
+                            <InputNumber @bind-Value="paidLeave.GrantedDays" class="form-control" />
+                        </TemplateColumn>
+                        <TemplateColumn Context="paidLeave" Title="付与日">
+                            <InputDate @bind-Value="paidLeave.GrantedDate" class="form-control" />
+                        </TemplateColumn>
+                        <TemplateColumn Context="paidLeave" Title="備考">
+                            <InputText @bind-Value="paidLeave.Remarks" class="form-control" />
+                        </TemplateColumn>
+                        <TemplateColumn Context="paidLeave">
+                            <button type="button" class="btn btn-primary text-nowrap" @onclick="() => RemoveRow(paidLeave)">削除</button>
+                        </TemplateColumn>
+                    </QuickGrid>
+                    <button type="button" class="btn btn-primary" @onclick="AddRow">追加</button>
                 </div>
                 <button type="submit" class="btn btn-primary">保存</button>
                 <a href="@resetPasswordUrl" class="btn btn-primary">パスワードリセット</a>
@@ -119,6 +137,10 @@ else
             var workTime = DbContext.MWorkTime
                 .Where(workTime => workTime.Id == entity!.WorkTimeId)
                 .FirstOrDefault();
+            (var queryPaidLeaves, _) = await InputModelService
+                .GetInputModelsAsync<InputPaidLeaveModel, TPaidLeave>();
+            var paidLeaves = queryPaidLeaves
+                .Where(p => p.UserId == entity.Id).ToList();
             ApplicationUser = new InputModel
             {
                 Role = role.FirstOrDefault() ?? "",
@@ -127,6 +149,7 @@ else
                     ? $"{workTime.StartTime} - {workTime.EndTime}"
                     : "",
                 IsPrevReminderEnabled = user!.IsPrevReminderEnabled,
+                PaidLeaves = paidLeaves,
             };
             PropertyUtil.CopyProperties(entity, ApplicationUser);
 
@@ -145,6 +168,21 @@ else
             Logger.LogError(ex, "Exception occurred!");
         }
         Logger.LogDebug("△OnInitializedAsync");
+    }
+
+    private void AddRow(MouseEventArgs args)
+    {
+        if (ApplicationUser is null) return;
+        ApplicationUser.PaidLeaves.Add(new InputPaidLeaveModel
+        {
+            GrantedDate = DateOnly.FromDateTime(DateTime.Today)
+        });
+    }
+
+    private void RemoveRow(InputPaidLeaveModel paidLeave)
+    {
+        if (ApplicationUser is null) return;
+        ApplicationUser.PaidLeaves.Remove(paidLeave);
     }
 
     // To protect from overposting attacks, enable the specific properties you want to bind to.
@@ -197,6 +235,27 @@ else
                 user.IsPrevReminderEnabled = ApplicationUser!.IsPrevReminderEnabled;
                 DbContext.Update(user);
                 await DbContext.SaveChangesAsync();
+            }
+
+            // 有給休暇の更新
+            ApplicationUser.PaidLeaves.RemoveAll(p => p.GrantedDays == 0);
+            DbContext.TPaidLeave.RemoveRange(
+                DbContext.TPaidLeave.Where(p => p.UserId == Id));
+            for (var i = 0; i < ApplicationUser.PaidLeaves.Count; i++)
+            {
+                var entity = await InputModelService
+                    .InputModelToEntity<InputPaidLeaveModel, TPaidLeave>(
+                        ApplicationUser.PaidLeaves[i]);
+                if (entity is null)
+                {
+                    break;
+                }
+                entity.UserId = Id;
+                entity.Name = $"{user.FullName}の有給休暇{(i == 0 ? "" : i.ToString())}";
+
+                // 最後以外は保存せずに追加のみ
+                await InputModelService.SaveChangesAsync(
+                    entity, i == ApplicationUser.PaidLeaves.Count - 1);
             }
         }
         catch (DbUpdateConcurrencyException ex)

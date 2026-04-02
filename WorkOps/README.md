@@ -73,3 +73,9 @@ UpdateMCustomerも同様に修正
 # 項目追加
 dotnet ef migrations add AddPrevReminderEnabled --output-dir Data\Migrations --namespace WorkOps.Migrations
 dotnet ef database update
+
+# テーブル追加
+ApplicationDbContextに
+public DbSet<TPaidLeave> TPaidLeave { get; set; } = default!;
+dotnet ef migrations add AddTPaidLeave --output-dir Data\Migrations --namespace WorkOps.Migrations
+dotnet ef database update

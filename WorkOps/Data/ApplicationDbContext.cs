@@ -68,6 +68,11 @@ namespace WorkOps.Data
         public DbSet<TReportDetail> TReportDetail { get; set; } = default!;
 
         /// <summary>
+        /// 有給休暇
+        /// </summary>
+        public DbSet<TPaidLeave> TPaidLeave { get; set; } = default!;
+
+        /// <summary>
         /// 保存
         /// </summary>
         /// <param name="cancellationToken">キャンセルトークン</param>

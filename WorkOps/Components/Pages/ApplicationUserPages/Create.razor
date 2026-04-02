@@ -4,8 +4,10 @@
 @using System.ComponentModel.DataAnnotations
 @using System.Text
 @using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.Components.QuickGrid
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.WebUtilities
+@using WorkOps.Models
 @using WorkOps.Data
 @using WorkOps.Services
 
@@ -17,7 +19,9 @@
 @inject NavigationManager NavigationManager
 @inject WorkOps.Components.Account.IdentityRedirectManager RedirectManager
 @inject WorkOps.Data.ApplicationDbContext DbContext
+@inject WorkOps.Services.InputModelService InputModelService
 @inject ILogger<Create> Logger
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>新規作成</PageTitle>
 
@@ -27,7 +31,7 @@
 <hr />
 <div class="row">
     <div class="col-lg-6">
-        <WorkOps.Components.Account.Shared.StatusMessage Message="@Message" />
+        <ErrorAlert Message="@Message" />
         <EditForm Model="Input" asp-route-returnUrl="@ReturnUrl" method="post" OnValidSubmit="RegisterUser" FormName="register">
             <DataAnnotationsValidator />
             <ValidationSummary class="text-danger" role="alert" />
@@ -76,9 +80,30 @@
                 <label for="isprevreminderenabled" class="form-label">前日・先週の未入力を通知する</label>
                 <ValidationMessage For="() => Input.IsPrevReminderEnabled" class="text-danger" />
             </div>
+            <div class="mb-3">
+                <QuickGrid Class="table" Items="Input.PaidLeaves.AsQueryable()" TGridItem="InputPaidLeaveModel">
+                    <TemplateColumn Context="paidLeave" Title="有給休暇日数">
+                        <InputNumber @bind-Value="paidLeave.GrantedDays" class="form-control" />
+                    </TemplateColumn>
+                    <TemplateColumn Context="paidLeave" Title="付与日">
+                        <InputDate @bind-Value="paidLeave.GrantedDate" class="form-control" />
+                    </TemplateColumn>
+                    <TemplateColumn Context="paidLeave" Title="備考">
+                        <InputText @bind-Value="paidLeave.Remarks" class="form-control" />
+                    </TemplateColumn>
+                    <TemplateColumn Context="paidLeave">
+                        <button type="button" class="btn btn-primary text-nowrap" @onclick="() => RemoveRow(paidLeave)">削除</button>
+                    </TemplateColumn>
+                </QuickGrid>
+                <button type="button" class="btn btn-primary" @onclick="AddRow">追加</button>
+            </div>
             <button type="submit" class="w-100 btn btn-lg btn-primary">登録</button>
         </EditForm>
     </div>
+</div>
+
+<div>
+    <a href="/applicationusers">一覧に戻る</a>
 </div>
 
 @code {
@@ -92,19 +117,39 @@
 
     private string? Message => identityErrors is null ? null : $"Error: {string.Join(", ", identityErrors.Select(error => error.Description))}";
 
-    protected override void OnInitialized() => Input ??= new();
+    protected override void OnInitialized() => Input ??= new()
+    {
+        Role = UserService.Roles.First().Key,
+        WorkTimeId = DbContext.MWorkTime.FirstOrDefault()?.Id,
+    };
+
+    private void AddRow(MouseEventArgs args)
+    {
+        if (Input is null) return;
+        Input.PaidLeaves.Add(new InputPaidLeaveModel
+        {
+            GrantedDate = DateOnly.FromDateTime(DateTime.Today)
+        });
+    }
+
+    private void RemoveRow(InputPaidLeaveModel paidLeave)
+    {
+        if (Input is null) return;
+        Input.PaidLeaves.Remove(paidLeave);
+    }
 
     public async Task RegisterUser(EditContext editContext)
     {
         Logger.LogDebug("▽RegisterUser");
         try
         {
+            if (Input is null) return;
             var user = CreateUser();
-            user.FullName = Input!.FullName;
-            user.WorkTimeId = Input!.WorkTimeId;
-            user.IsPrevReminderEnabled = Input!.IsPrevReminderEnabled;
+            user.FullName = Input.FullName;
+            user.WorkTimeId = Input.WorkTimeId;
+            user.IsPrevReminderEnabled = Input.IsPrevReminderEnabled;
 
-            await UserStore.SetUserNameAsync(user, Input!.Email, CancellationToken.None);
+            await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
             var emailStore = GetEmailStore();
             await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
             var result = await UserManager.CreateAsync(user, Input.Password);
@@ -126,6 +171,26 @@
                 await UserManager.AddToRoleAsync(user, Input.Role);
                 userId = user.Id;
             }
+
+            // 有給休暇
+            Input.PaidLeaves.RemoveAll(p => p.GrantedDays == 0);
+            for (var i = 0; i < Input.PaidLeaves.Count; i++)
+            {
+                var entity = await InputModelService
+                    .InputModelToEntity<InputPaidLeaveModel, TPaidLeave>(
+                        Input.PaidLeaves[i]);
+                if (entity is null)
+                {
+                    break;
+                }
+                entity.UserId = userId;
+                entity.Name = $"{user.FullName}の有給休暇{(i == 0 ? "" : i.ToString())}";
+
+                // 最後以外は保存せずに追加のみ
+                await InputModelService.SaveChangesAsync(
+                    entity, i == Input.PaidLeaves.Count - 1);
+            }
+
             NavigationManager.NavigateTo("/applicationusers");
         }
         catch (Exception ex)

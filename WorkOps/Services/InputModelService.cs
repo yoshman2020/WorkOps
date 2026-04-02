@@ -114,8 +114,10 @@ public class InputModelService(ApplicationDbContext context,
     /// </summary>
     /// <typeparam name="TEntity">エンティティ</typeparam>
     /// <param name="entity">エンティティ</param>
+    /// <param name="isSave">保存するか？</param>
     /// <returns></returns>
-    public async Task SaveChangesAsync<TEntity>(TEntity entity)
+    public async Task SaveChangesAsync<TEntity>(TEntity entity,
+        bool isSave = true)
         where TEntity : BaseEntity
     {
         if (entity.Id == 0)
@@ -126,7 +128,10 @@ public class InputModelService(ApplicationDbContext context,
         {
             _context.Set<TEntity>().Update(entity);
         }
-        await _context.SaveChangesAsync();
+        if (isSave)
+        {
+            await _context.SaveChangesAsync();
+        }
     }
 
     /// <summary>

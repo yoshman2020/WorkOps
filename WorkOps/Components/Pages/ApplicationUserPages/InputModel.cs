@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using WorkOps.Models;
 
 namespace WorkOps.Components.Pages.ApplicationUserPages;
 
@@ -67,4 +68,9 @@ public class InputModel
     /// </summary>
     [Display(Name = "関連データも含めて完全に削除")]
     public bool IsForceDelete { get; set; } = false;
+
+    /// <summary>
+    /// 有給休暇
+    /// </summary>
+    public List<InputPaidLeaveModel> PaidLeaves { get; set; } = [];
 }
