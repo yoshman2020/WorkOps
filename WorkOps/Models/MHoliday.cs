@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace WorkOps.Models;
+﻿namespace WorkOps.Models;
 
 /// <summary>
 /// 祝祭日

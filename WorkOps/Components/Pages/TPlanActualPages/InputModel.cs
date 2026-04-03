@@ -11,7 +11,7 @@ public sealed class InputModel : BaseInputModel
     /// <summary>
     /// 行クラス
     /// </summary>
-    public string RowClass { get; set; }　= string.Empty;
+    public string RowClass { get; set; } = string.Empty;
 
     /// <summary>
     /// 実績
@@ -22,8 +22,11 @@ public sealed class InputModel : BaseInputModel
     /// 予定・実績
     /// </summary>
     [Display(Name = "")]
-    public string TypeName { get =>
-            RowClass switch { "actual" => "実績", "plan" => "予定", _ => "" }; }
+    public string TypeName
+    {
+        get =>
+            RowClass switch { "actual" => "実績", "plan" => "予定", _ => "" };
+    }
 
     /// <summary>
     /// 日付ごと予定・実績IDと表示文字（―――>）とツールチップ

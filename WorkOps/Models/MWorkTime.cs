@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using WorkOps.Data;
+﻿using WorkOps.Data;
 
 namespace WorkOps.Models;
 

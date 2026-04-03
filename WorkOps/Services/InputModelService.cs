@@ -235,7 +235,7 @@ public class InputModelService(ApplicationDbContext context,
         int id)
         where TEntity : BaseEntity
         where TChildEntity : BaseEntity
-        where TChildEntity2 : BaseEntity    
+        where TChildEntity2 : BaseEntity
     {
         var entity = await _context.Set<TEntity>()
             .FirstOrDefaultAsync(m => m.Id == id);

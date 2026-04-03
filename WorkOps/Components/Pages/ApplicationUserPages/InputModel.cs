@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using WorkOps.Models;
 
 namespace WorkOps.Components.Pages.ApplicationUserPages;
 

@@ -1,11 +1,11 @@
 ﻿using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 using WorkOps.Components;
 using WorkOps.Components.Account;
 using WorkOps.Data;
 using WorkOps.Services;
-using Serilog;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
