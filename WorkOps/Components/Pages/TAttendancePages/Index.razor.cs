@@ -17,7 +17,9 @@ public partial class Index
             if (_userId != value)
             {
                 _userId = value;
-                LoadSelectedData();
+#pragma warning disable CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
+                LoadSelectedDataAsync();
+#pragma warning restore CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
             }
         }
     }
@@ -30,7 +32,9 @@ public partial class Index
             if (_dateFrom != value)
             {
                 _dateFrom = value;
-                LoadSelectedData();
+#pragma warning disable CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
+                LoadSelectedDataAsync();
+#pragma warning restore CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
             }
         }
     }
@@ -43,7 +47,9 @@ public partial class Index
             if (_dateTo != value)
             {
                 _dateTo = value;
-                LoadSelectedData();
+#pragma warning disable CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
+                LoadSelectedDataAsync();
+#pragma warning restore CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
             }
         }
     }
@@ -64,6 +70,8 @@ public partial class Index
     private string totalTime = string.Empty;
     // 稼働日
     private string workingDays = "0";
+    // 有給残日数
+    private string paidLeaveRemaining = string.Empty;
 
     /// <summary>
     /// 管理者権限なし
@@ -86,7 +94,7 @@ public partial class Index
             hassNotAuthorized = !await UserService.HasAdminRoleAsync();
 
             DateService.SetThisMonth(ref _dateFrom, ref _dateTo);
-            LoadSelectedData();
+            await LoadSelectedDataAsync();
 
             // 前日・先週の未入力通知
             notifications = await LoadNotificationsAsync();
@@ -102,28 +110,28 @@ public partial class Index
     /// データ読み込み
     /// </summary>
     /// <returns></returns>
-    private void LoadSelectedData()
+    private async Task LoadSelectedDataAsync()
     {
-        Logger.LogDebug("▼LoadSelectedData");
+        Logger.LogDebug("▼LoadSelectedDataAsync");
         try
         {
-            InputModels = LoadData(DateFrom, DateTo);
+            InputModels = await LoadDataAsync(DateFrom, DateTo);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Exception occurred!");
         }
-        Logger.LogDebug("▲LoadSelectedData");
+        Logger.LogDebug("▲LoadSelectedDataAsync");
     }
 
     /// <summary>
     /// 月を変更する
     /// </summary>
     /// <param name="offset">オフセット。0の場合は当月</param>
-    private void ChangeMonth(int offset)
+    private async Task ChangeMonthAsync(int offset)
     {
         DateService.ChangeMonth(offset, ref _dateFrom, ref _dateTo);
-        LoadSelectedData();
+        await LoadSelectedDataAsync();
     }
 
     /// <summary>

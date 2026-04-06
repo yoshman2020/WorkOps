@@ -21,7 +21,7 @@ public partial class Index
 
         for (int month = 1; month <= 12; month++)
         {
-            GenerateExcel(workbook, month, userName ?? string.Empty);
+            await GenerateExcelAsync(workbook, month, userName ?? string.Empty);
         }
 
         workbook.Worksheet($"{DateFrom.Month}月").SetTabActive();
@@ -41,10 +41,10 @@ public partial class Index
     /// <param name="workbook">WorkBook</param>
     /// <param name="month">月（1～12）</param>
     /// <param name="userName">ユーザー名</param>
-    private void GenerateExcel(
+    private async Task GenerateExcelAsync(
         XLWorkbook workbook, int month, string userName)
     {
-        var inputModels = LoadData(
+        var inputModels = await LoadDataAsync(
             new DateOnly(DateFrom.Year, month, 1),
             new DateOnly(DateFrom.Year, month,
                 DateTime.DaysInMonth(DateFrom.Year, month)));

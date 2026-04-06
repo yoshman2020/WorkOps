@@ -15,7 +15,7 @@ public partial class Index
     /// <param name="from">開始日</param>
     /// <param name="to">終了日</param>
     /// <returns></returns>
-    private List<InputModel> LoadData(DateOnly from, DateOnly to)
+    private async Task<List<InputModel>> LoadDataAsync(DateOnly from, DateOnly to)
     {
         // 出退勤
         var attendances = LoadAttendances(from, to);
@@ -36,7 +36,11 @@ public partial class Index
             actualLookup,
             holidays);
 
+        // 合計
         CalculateTotals(models);
+
+        // 有給残数
+        await CalculatePaidLeaveRemainingAsync();
 
         return models;
     }
@@ -212,6 +216,36 @@ public partial class Index
 
         workingDays = $"{days}";
         totalTime = $"{days * 8}時間";
+    }
+
+    /// <summary>
+    /// 有給残数計算
+    /// </summary>
+    private async Task CalculatePaidLeaveRemainingAsync()
+    {
+        var user = Users.FirstOrDefault(u => u.Id == UserId);
+        if (user == null)
+        {
+            return;
+        }
+
+        // DBから有給休暇日数を取得
+        var grantedDays = DbContext.TPaidLeave
+            .Where(pl => pl.UserId == UserId && pl.GrantedDate <= DateTo)
+            .Sum(pl => pl.GrantedDays);
+
+        // DBから有給休暇使用日数を取得
+        var durations = await DbContext.TAttendance
+            .Where(a => a.UserId == UserId && a.Date <= DateTo)
+            .Select(a => a.PaidLeaveDuration)
+            .ToListAsync();
+
+        var usedDays = durations
+            .Sum(d => d != null ? (decimal)d.Value.TotalHours / 8 : 0);
+
+        var remainingDays = grantedDays - usedDays;
+
+        paidLeaveRemaining = $"{remainingDays}日";
     }
 
     /// <summary>
