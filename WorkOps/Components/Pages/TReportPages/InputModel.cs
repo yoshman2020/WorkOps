@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using WorkOps.Models;
+using WorkOps.Models.Enums;
 
 namespace WorkOps.Components.Pages.TReportPages;
 
@@ -41,4 +42,14 @@ public sealed class InputModel : BaseInputModel
     /// 詳細入力モデルリスト
     /// </summary>
     public List<InputDetailModel> InputDetailModels { get; set; } = default!;
+
+    /// <summary>
+    /// 承認ステータス
+    /// </summary>
+    public ApprovalStatus ApprovalStatus { get; set; }
+
+    /// <summary>
+    /// クリックできるステータス
+    /// </summary>
+    public List<ApprovalStatus> ClickableStatuses { get; set; } = [];
 }

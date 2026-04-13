@@ -1,0 +1,31 @@
+﻿/* 改行コード(\n)を有効にし、中央揃えにする */
+.custom-line-break {
+    white-space: pre-wrap;
+    display: inline-block;
+    line-height: 1.2;
+    vertical-align: middle;
+}
+
+.breadcrumb-custom {
+    --bs-breadcrumb-divider: ""; /* デフォルトの / を消去 */
+    margin-bottom: 0;
+    height: auto !important;
+    align-items: center;
+}
+
+.breadcrumb-custom-high {
+    min-height: 60px;
+}
+
+.breadcrumb-custom .breadcrumb-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+}
+
+/* 前の項目との間に矢印のような余白を作る設定 */
+.breadcrumb-custom .breadcrumb-item + .breadcrumb-item::before {
+    display: variant;
+    padding-right: 1rem;
+    content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='currentColor' class='bi bi-chevron-right' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+}

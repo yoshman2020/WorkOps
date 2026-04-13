@@ -212,6 +212,9 @@ public class InputModelService(ApplicationDbContext context,
         if (await HasChildEntitiesAsync<TEntity, TChildEntity>(entity!))
         {
             // 子エンティティが存在する場合は削除しない
+            logger.LogWarning(
+                "DeleteInputModelAsync: Cannot delete Id={Id} TEntity={TEntity} because it has child entities of type {ChildEntity}",
+                id, typeof(TEntity).Name, typeof(TChildEntity).Name);
             return ErrorCode.HasChildren;
         }
 

@@ -101,6 +101,7 @@
             if (entity == null)
             {
                 NavigationManager.NavigateTo("notfound");
+                return;
             }
             var role = await UserManager.GetRolesAsync(entity!);
             var workTime = DbContext.MWorkTime

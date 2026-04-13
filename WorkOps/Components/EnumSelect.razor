@@ -1,0 +1,17 @@
+﻿@using WorkOps.Extensions
+@typeparam TEnum where TEnum : struct, Enum
+
+<InputSelect @bind-Value="Value" class="@Class">
+    @foreach (var item in Enum.GetValues<TEnum>())
+    {
+        <option value="@item">
+            @item.GetDisplayName()
+        </option>
+    }
+</InputSelect>
+
+@code {
+    [Parameter] public TEnum Value { get; set; }
+    [Parameter] public EventCallback<TEnum> ValueChanged { get; set; }
+    [Parameter] public string? Class { get; set; }
+}

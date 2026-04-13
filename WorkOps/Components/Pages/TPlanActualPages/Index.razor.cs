@@ -187,6 +187,7 @@ public partial class Index
                         DbContext.TActual.Any(actual =>
                             (string.IsNullOrEmpty(UserId) || actual.UserId == UserId) &&
                             actual.MPhaseId == p.Id)
+                        // TODO 2か月以上前のデータは除外
                     )
                 )
                 .Include(p => p.MProject)

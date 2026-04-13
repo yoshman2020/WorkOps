@@ -64,8 +64,23 @@ h1:focus {
     width: 50em;
 }
 
+/* 幅が画面いっぱいではないQuickGrid */
+.quickgrid-widthauto {
+    width: auto;
+}
+
+/* 中央揃え */
+.quickgrid-align-middle td {
+    vertical-align: middle;
+}
+
 /* 詳細画面のdlの下にQuickGridを配置する */
 .dl-quickgrid {
     margin-left: -0.5rem;
     margin-top: -1rem;
+}
+
+/* リンクのホバー時の色を青にする */
+.link-hover-primary:hover {
+    color: #0d6efd !important;
 }

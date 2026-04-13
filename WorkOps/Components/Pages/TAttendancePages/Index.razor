@@ -1,5 +1,6 @@
 ﻿@page "/tattendances"
 @using Microsoft.AspNetCore.Components.QuickGrid
+@using WorkOps.Models.Enums
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
@@ -17,7 +18,7 @@
 
 <form action="/tattendances" data-enhance data-parmanent>
     <div class="row">
-        <div class="col-auto">
+        <div class="col-auto d-flex align-items-center">
             <select id="user" @bind="UserId" class="form-select" aria-required="true">
                 @foreach (var user in Users)
                 {
@@ -25,12 +26,12 @@
                 }
             </select>
         </div>
-        <div class="col-auto d-flex">
+        <div class="col-auto d-flex align-items-center">
             <input type="date" id="datefrom" @bind="DateFrom" class="form-control" />
             ～
             <input type="date" id="dateTo" @bind="DateTo" class="form-control" />
         </div>
-        <div class="col-auto">
+        <div class="col-auto d-flex align-items-center">
             <button id="prev" @onclick="() => ChangeMonthAsync(-1)" class="btn btn-primary">
            &lt;
             </button>
@@ -41,9 +42,20 @@
            &gt;
             </button>
         </div>
-        <div class="col">
+        <div class="col-auto d-flex align-items-center">
             <button id="excel" @onclick="DownloadExcelAsync" class="btn btn-primary">Excel出力</button>
         </div>
+        @if (IsDisplayOneMonth())
+        {
+            // 1ヶ月表示のときのみステータス遷移を表示
+            <div class="col-auto d-flex align-items-center">
+                <StatusStepNavigation
+                    TEnum="ApprovalStatus"
+                    CurrentStatus="@currentStatus"
+                    OnStepClick="OnStepClickAsync"
+                    ClickableStatuses="@clickableStatuses"/>
+            </div>
+        }
     </div>
 </form>
 

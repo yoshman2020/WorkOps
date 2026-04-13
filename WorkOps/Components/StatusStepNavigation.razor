@@ -1,0 +1,121 @@
+﻿@using System.Reflection
+@using System.ComponentModel.DataAnnotations
+@using WorkOps.Extensions
+@typeparam TEnum where TEnum : struct, Enum
+
+<nav aria-label="breadcrumb">
+    @{
+        var olClassName = "breadcrumb breadcrumb-custom overflow-hidden text-center bg-body-tertiary border rounded-3";
+        if (!IsShortName)
+        {
+            // 長い名前を表示する場合は、スタイルを調整して高さを確保
+            olClassName = $"{olClassName} breadcrumb-custom-high";
+        }
+    }
+    <ol class="@olClassName">
+        @{
+            var values = Enum.GetValues<TEnum>();
+            int currentIndex = Array.IndexOf(values, CurrentStatus);
+        }
+
+        @foreach (var status in values)
+        {
+            if (HiddenStatuses != null && HiddenStatuses.Contains(status))
+            {
+                continue; // 非表示のステータスはスキップ
+            }
+
+            int index = Array.IndexOf(values, status);
+            bool isCompleted = index < currentIndex;
+            bool isActive = index == currentIndex;
+            bool isFuture = index > currentIndex;
+            bool isNext = index > currentIndex;
+            bool isPrev = index < currentIndex;
+
+            <li class="breadcrumb-item @(isActive ? "active" : "")" aria-current="@(isActive ? "page" : null)">
+                @{
+                    var className = $"{GetTextColor(isCompleted, isActive, isFuture)} custom-line-break";
+
+                    var clickable = (isNext || isPrev)
+                    && (ClickableStatuses != null && ClickableStatuses.Contains(status));
+                    if (clickable)
+                    {
+                        if (isNext)
+                        {
+                            className = "link-secondary link-hover-primary text-decoration-none custom-line-break";
+                        }
+                        else
+                        {
+                            className = $"{className} link-hover-primary text-decoration-none";
+                        }
+                    }
+                }
+                @if (clickable)
+                {
+                    @* クリック可能なリンク *@
+                    <a class="@className"
+                       href="javascript:void(0)"
+                       @onclick="() => OnStepClick.InvokeAsync(status)">
+                        @status.GetDisplayName(IsShortName)
+                    </a>
+                }
+                else
+                {
+                    @* 状態に応じたテキスト表示 *@
+                    <span class="@className">
+                        @status.GetDisplayName(IsShortName)
+                    </span>
+                }
+            </li>
+        }
+    </ol>
+</nav>
+
+@code {
+    /// <summary>
+    /// 現在のステータス。これに基づいて、完了、現在、未来の状態を判断し、表示を切り替える。
+    /// </summary>
+    [Parameter, EditorRequired]
+    public TEnum CurrentStatus { get; set; }
+
+    /// <summary>
+    /// ステップがクリックされたときに呼び出されるコールバック。
+    /// </summary>
+    [Parameter]
+    public EventCallback<TEnum> OnStepClick { get; set; }
+
+    /// <summary>
+    /// クリック可能なステータスのリスト。これに含まれるステータスのみクリック可能になる。
+    /// </summary>
+    [Parameter]
+    public List<TEnum>? ClickableStatuses { get; set; }
+
+    /// <summary>
+    /// 非表示にするステータスのリスト。これに含まれるステータスは表示されなくなる。
+    /// </summary>
+    [Parameter]
+    public List<TEnum>? HiddenStatuses { get; set; }
+
+    /// <summary>
+    /// ステータスの表示名に短縮名を使用するかどうかを指定します。
+    /// </summary>
+    [Parameter]
+    public bool IsShortName { get; set; } = false;
+
+    /// <summary>
+    /// ステータスの表示色を取得します。
+    /// </summary>
+    /// <param name="isCompleted">完了ステータスかどうか</param>
+    /// <param name="isActive">現在のステータスかどうか</param>
+    /// <param name="isFuture">未来のステータスかどうか</param>
+    /// <returns>ステータスの表示色に対応するCSSクラス</returns>
+    private string GetTextColor(bool isCompleted, bool isActive, bool isFuture)
+    {
+        // 完了：黒/太字
+        if (isCompleted) return "text-dark fw-bold";
+        // 現在：青
+        if (isActive) return "text-primary fw-bold";
+        // 未来：グレー
+        return "text-muted";
+    }
+}

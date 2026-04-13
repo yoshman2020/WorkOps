@@ -1,4 +1,7 @@
-﻿namespace WorkOps.Models;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace WorkOps.Models;
 
 /// <summary>
 /// 週報
@@ -19,6 +22,18 @@ public class TReport : BaseEntity
     /// 週報詳細リスト
     /// </summary>
     public ICollection<TReportDetail> TReportDetails { get; set; } = [];
+
+    /// <summary>
+    /// 承認ステータスID
+    /// </summary>
+    [ForeignKey(nameof(MApprovalStatus))]
+    public int? MApprovalStatusId { get; set; }
+
+    /// <summary>
+    /// 承認ステータス
+    /// </summary>
+    [DeleteBehavior(DeleteBehavior.Cascade)]
+    public MApprovalStatus MApprovalStatus { get; set; } = null!;
 
     /// <summary>
     /// 週報

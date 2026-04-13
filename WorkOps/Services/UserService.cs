@@ -39,6 +39,20 @@ namespace WorkOps.Services
         }
 
         /// <summary>
+        /// ログインユーザーのID取得
+        /// </summary>
+        /// <returns>ログインユーザーのID</returns>
+        public async Task<string> GetUserIdAsync()
+        {
+            var authState = await _authenticationStateProvider
+                .GetAuthenticationStateAsync();
+            var user = authState.User;
+            return user.FindFirst(
+                System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? string.Empty;
+        }
+
+        /// <summary>
         /// ユーザー名取得
         /// </summary>
         /// <param name="userId"></param>

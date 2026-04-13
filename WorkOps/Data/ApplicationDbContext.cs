@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using WorkOps.Extensions;
 using WorkOps.Models;
+using WorkOps.Models.Enums;
 using WorkOps.Services;
 
 namespace WorkOps.Data
@@ -71,6 +73,16 @@ namespace WorkOps.Data
         /// 有給休暇
         /// </summary>
         public DbSet<TPaidLeave> TPaidLeave { get; set; } = default!;
+
+        /// <summary>
+        /// 承認ステータス
+        /// </summary>
+        public DbSet<MApprovalStatus> MApprovalStatus { get; set; } = default!;
+
+        /// <summary>
+        /// 出退勤ステータス
+        /// </summary>
+        public DbSet<TAttendanceStatus> TAttendanceStatus { get; set; } = default!;
 
         /// <summary>
         /// 保存

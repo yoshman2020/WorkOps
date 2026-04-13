@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
 using WorkOps.Data;
+using WorkOps.Models;
+using WorkOps.Models.Enums;
 using WorkOps.Services;
 
 namespace WorkOps.Components.Pages.TAttendancePages;
@@ -56,6 +58,13 @@ public partial class Index
 
     // 前日・先週の未入力通知
     private string notifications = string.Empty;
+
+    // 承認ステータス
+    private ApprovalStatus currentStatus = ApprovalStatus.NotSubmitted;
+
+    // クリックできるステータス
+    private List<ApprovalStatus> clickableStatuses = [];
+
     private List<InputModel>? InputModels;
     private readonly PaginationState pagination = new() { ItemsPerPage = 31 };
     private List<ApplicationUser> Users = [];
@@ -77,6 +86,11 @@ public partial class Index
     /// 管理者権限なし
     /// </summary>
     private bool hassNotAuthorized = true;
+
+    /// <summary>
+    /// 休日リスト
+    /// </summary>
+    private Dictionary<DateOnly, MHoliday> holidays = [];
 
     /// <summary>
     /// 初期化
@@ -116,6 +130,12 @@ public partial class Index
         try
         {
             InputModels = await LoadDataAsync(DateFrom, DateTo);
+
+            // 承認ステータス取得
+            currentStatus = GetCurrentStatus();
+
+            // クリックできるステータス取得
+            clickableStatuses = await GetClickableStatusesAsync();
         }
         catch (Exception ex)
         {
@@ -132,6 +152,25 @@ public partial class Index
     {
         DateService.ChangeMonth(offset, ref _dateFrom, ref _dateTo);
         await LoadSelectedDataAsync();
+    }
+
+    /// <summary>
+    /// ステータスクリック
+    /// </summary>
+    /// <param name="status">更新するステータス</param>
+    private async Task OnStepClickAsync(ApprovalStatus status)
+    {
+        Logger.LogDebug("▽OnStepClick");
+        try
+        {
+            // ステータス更新
+            currentStatus = await UpdateStatusAsync(status);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnStepClick");
     }
 
     /// <summary>

@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using WorkOps.Extensions;
+using WorkOps.Models.Enums;
 
 namespace WorkOps.Data;
 
@@ -13,6 +15,40 @@ public class SeedData
         {
             throw new NullReferenceException(
                 "Null ApplicationDbContext or Users DbSet");
+        }
+
+        if (!dbContext.MApprovalStatus.Any())
+        {
+            // 承認ステータスが存在しない場合は初期データを追加
+            dbContext.MApprovalStatus.AddRange(
+                // 未提出は初期状態のため、データとしては存在させない
+                new Models.MApprovalStatus
+                {
+                    // 提出済\n（管理者確認中）
+                    Id = (int)ApprovalStatus.SubmittedPendingManager,
+                    Name = EnumExtensions.GetDisplayName(ApprovalStatus.SubmittedPendingManager)
+                },
+                new Models.MApprovalStatus
+                {
+                    // 管理者確認済\n（担当者確認中）
+                    Id = (int)ApprovalStatus.UnderReviewByStaff,
+                    Name = EnumExtensions.GetDisplayName(ApprovalStatus.UnderReviewByStaff)
+                },
+                new Models.MApprovalStatus
+                {
+                    // 担当者確認済\n（承認待ち）
+                    Id = (int)ApprovalStatus.ReviewedPendingApproval,
+                    Name = EnumExtensions.GetDisplayName(ApprovalStatus.ReviewedPendingApproval)
+                },
+                new Models.MApprovalStatus
+                {
+                    // 承認済
+                    Id = (int)ApprovalStatus.Approved,
+                    Name = EnumExtensions.GetDisplayName(ApprovalStatus.Approved)
+                }
+            );
+
+            await dbContext.SaveChangesAsync();
         }
 
         if (dbContext.Users.Any())

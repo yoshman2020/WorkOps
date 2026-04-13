@@ -6,7 +6,9 @@
 @using Microsoft.AspNetCore.Components.QuickGrid
 @using Microsoft.Extensions.Options
 @using WorkOps.Data
+@using WorkOps.Extensions
 @using WorkOps.Models
+@using WorkOps.Models.Enums
 @using WorkOps.Services
 @using WorkOps.Utils
 @inject WorkOps.Data.ApplicationDbContext DbContext
@@ -37,13 +39,13 @@
             <input type="month" id="month" @bind="Month" class="form-control" />
         </div>
         <div class="col-auto">
-            <button id="prev" @onclick="() => ChangeMonth(-1)" class="btn btn-primary">
+            <button id="prev" @onclick="() => ChangeMonthAsync(-1)" class="btn btn-primary">
                 &lt;
             </button>
-            <button id="current" @onclick="() => ChangeMonth(0)" class="btn btn-primary">
+            <button id="current" @onclick="() => ChangeMonthAsync(0)" class="btn btn-primary">
                 &cir;
             </button>
-            <button id="prev" @onclick="() => ChangeMonth(1)" class="btn btn-primary">
+            <button id="prev" @onclick="() => ChangeMonthAsync(1)" class="btn btn-primary">
                 &gt;
             </button>
         </div>
@@ -53,7 +55,7 @@
     </div>
 </form>
 
-<QuickGrid Class="table" Items="InputModels!.AsQueryable()">
+<QuickGrid Class="table quickgrid-widthauto quickgrid-align-middle" Items="InputModels!.AsQueryable()">
     <DisplayPropertyColumn Property="treport => treport.DateString" />
     <DisplayPropertyColumn Property="treport => treport.Description" />
     <TemplateColumn Context="treport">
@@ -69,6 +71,16 @@
             <span class="text-muted">削除</span>
         }
     </TemplateColumn>
+    <TemplateColumn Context="treport">
+        <StatusStepNavigation
+            TEnum="ApprovalStatus"
+            CurrentStatus="@treport.ApprovalStatus"
+            OnStepClick="(status) => OnStepClickAsync(status, treport.Id)"
+            ClickableStatuses="@treport.ClickableStatuses"
+            HiddenStatuses="@hiddenStatuses"
+            IsShortName="true"
+            />
+    </TemplateColumn>
 </QuickGrid>
 <script src="js/download.js"></script>
 
@@ -83,7 +95,9 @@
             if (_userId != value)
             {
                 _userId = value;
-                LoadSelectedData();
+#pragma warning disable CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
+                LoadSelectedDataAsync();
+#pragma warning restore CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
             }
         }
     }
@@ -96,12 +110,22 @@
             if (_month != value)
             {
                 _month = value;
-                LoadSelectedData();
+#pragma warning disable CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
+                LoadSelectedDataAsync();
+#pragma warning restore CS4014 // この呼び出しは待機されなかったため、現在のメソッドの実行は呼び出しの完了を待たずに続行されます
             }
         }
     }
     private List<InputModel>? InputModels;
     private List<ApplicationUser> Users = [];
+
+    /// <summary>
+    /// 非表示にするステータス
+    /// </summary>
+    private List<ApprovalStatus> hiddenStatuses = [
+        ApprovalStatus.UnderReviewByStaff,
+        ApprovalStatus.ReviewedPendingApproval
+    ];
 
     protected override async Task OnInitializedAsync()
     {
@@ -117,7 +141,7 @@
                 Month = new DateOnly(today.Year, today.Month, 1);
             }
 
-            LoadSelectedData();
+            await LoadSelectedDataAsync();
         }
         catch (Exception ex)
         {
@@ -127,21 +151,40 @@
     }
 
     /// <summary>
-    /// データ読み込み
+    /// ステータスクリック
     /// </summary>
-    /// <returns></returns>
-    private void LoadSelectedData()
+    /// <param name="status">更新するステータス</param>
+    private async Task OnStepClickAsync(ApprovalStatus status, int reportId)
     {
-        Logger.LogDebug("▼LoadSelectedData");
+        Logger.LogDebug("▽OnStepClick");
         try
         {
-            InputModels = LoadData(_month);
+            // ステータス更新
+            await UpdateStatusAsync(status);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Exception occurred!");
         }
-        Logger.LogDebug("▲LoadSelectedData");
+        Logger.LogDebug("△OnStepClick");
+    }
+
+    /// <summary>
+    /// データ読み込み
+    /// </summary>
+    /// <returns></returns>
+    private async Task LoadSelectedDataAsync()
+    {
+        Logger.LogDebug("▼LoadSelectedDataAsync");
+        try
+        {
+            InputModels = await LoadDataAsync(_month);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("▲LoadSelectedDataAsync");
     }
 
     /// <summary>
@@ -149,7 +192,7 @@
     /// </summary>
     /// <param name="month">月</param>
     /// <returns></returns>
-    private List<InputModel>? LoadData(DateOnly month)
+    private async Task<List<InputModel>?> LoadDataAsync(DateOnly month)
     {
         List<InputModel> inputModels = [];
         try
@@ -177,21 +220,32 @@
                     && e.Date < nextMonday
                 );
 
-            inputModels = mondays.GroupJoin(treports,
+            var list = mondays.GroupJoin(treports,
                 monday => monday,
                 treport => treport.Date,
-                (monday, treports) => new InputModel
+                (monday, treports) => new { monday, treports });
+
+            inputModels = [];
+            foreach (var x  in list)
+            {
+                var treport = x.treports.FirstOrDefault() ?? new();
+                var inputModel = new InputModel
                 {
-                    Id = treports.FirstOrDefault()?.Id ?? 0,
-                    Date = monday,
-                    DateString = $"{monday:MM/dd} ～ {monday.AddDays(6):MM/dd}",
+                    Id = treport.Id,
+                    Date = x.monday,
+                    DateString = $"{x.monday:MM/dd} ～ {x.monday.AddDays(6):MM/dd}",
                     Description = string.Join(',',
-                        treports.SelectMany(t => t.TReportDetails)
-                        .Where(x => !string.IsNullOrEmpty(x.MProject?.Name)
-                            && x.MProject.Name != "その他")
-                        .Select(x => x.MProject!.Name)),
-                })
-                .ToList();
+                        x.treports.SelectMany(t => t.TReportDetails)
+                        .Where(d => !string.IsNullOrEmpty(d.MProject?.Name)
+                            && d.MProject.Name != "その他")
+                        .Select(d => d.MProject!.Name)),
+                    ApprovalStatus = treport.MApprovalStatusId.HasValue
+                        ? (ApprovalStatus)treport.MApprovalStatusId.Value
+                        : ApprovalStatus.NotSubmitted,
+                    ClickableStatuses = await GetClickableStatusesAsync(treport)
+                };
+                inputModels.Add(inputModel);
+            }
 
             return inputModels;
         }
@@ -242,13 +296,73 @@
     }
 
     /// <summary>
+    /// 承認ステータスを更新する
+    /// </summary>
+    /// <param name="status">更新するステータス</param>
+    /// <returns></returns>
+    private async Task UpdateStatusAsync(ApprovalStatus status)
+    {
+        var treport = await DbContext.TReport.FindAsync(InputModels!.First().Id);
+        if (treport is null)
+        {
+            return;
+        }
+        treport.MApprovalStatusId = status == ApprovalStatus.NotSubmitted ? null : (int)status;
+        await DbContext.SaveChangesAsync();
+        await LoadSelectedDataAsync();
+    }
+
+    private async Task<List<ApprovalStatus>> GetClickableStatusesAsync(
+        TReport treport)
+    {
+        List<ApprovalStatus> statuses = [];
+        if (treport.Id == 0)
+        {
+            // 作成されていない場合はクリック不可
+            return statuses;
+        }
+
+        var status = EnumExtensions.ToEnum<ApprovalStatus>(treport.MApprovalStatusId);
+
+        if (await UserService.HasAdminRoleAsync())
+        {
+            // 管理者権限ありの場合は、提出済⇔承認済
+            switch (status)
+            {
+                case ApprovalStatus.SubmittedPendingManager:
+                    statuses.Add(ApprovalStatus.Approved);
+                    break;
+                case ApprovalStatus.Approved:
+                    statuses.Add(ApprovalStatus.SubmittedPendingManager);
+                    break;
+            }
+        }
+        var loginUserId = await UserService.GetUserIdAsync();
+        if (UserId == loginUserId)
+        {
+            // 自身のデータの場合は、未提出⇔提出済
+            switch (status)
+            {
+                case ApprovalStatus.NotSubmitted:
+                    statuses.Add(ApprovalStatus.SubmittedPendingManager);
+                    break;
+                case ApprovalStatus.SubmittedPendingManager:
+                    statuses.Add(ApprovalStatus.NotSubmitted);
+                    break;
+            }
+        }
+
+        return statuses;
+    }
+
+    /// <summary>
     /// 月を変更する
     /// </summary>
     /// <param name="offset">オフセット。0の場合は当月</param>
-    private void ChangeMonth(int offset)
+    private async Task ChangeMonthAsync(int offset)
     {
         DateService.ChangeMonth(offset, ref _month);
-        LoadSelectedData();
+        await LoadSelectedDataAsync();
     }
 
     /// <summary>
