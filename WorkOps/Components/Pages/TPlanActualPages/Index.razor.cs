@@ -174,6 +174,9 @@ public partial class Index
                 .Select(p => p.MProjectId)
                 .Distinct();
 
+            // 2カ月以上前のデータは除外
+            var twoMonthsAgo = dateFrom.AddMonths(-1);
+
             // プロジェクトに紐づく工程
             var phases = DbContext.MPhase
                 .Where(p =>
@@ -182,12 +185,13 @@ public partial class Index
                         // 予定または実績あり
                         DbContext.TPlan.Any(plan =>
                             (string.IsNullOrEmpty(UserId) || plan.UserId == UserId) &&
-                            plan.MPhaseId == p.Id)
+                            plan.MPhaseId == p.Id &&
+                            DateOnly.FromDateTime(plan.EndDate) >= twoMonthsAgo)
                         ||
                         DbContext.TActual.Any(actual =>
                             (string.IsNullOrEmpty(UserId) || actual.UserId == UserId) &&
-                            actual.MPhaseId == p.Id)
-                        // TODO 2か月以上前のデータは除外
+                            actual.MPhaseId == p.Id &&
+                            DateOnly.FromDateTime(actual.EndDate) >= twoMonthsAgo)
                     )
                 )
                 .Include(p => p.MProject)
