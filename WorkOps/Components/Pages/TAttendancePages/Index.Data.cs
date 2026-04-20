@@ -1,5 +1,4 @@
-﻿using DocumentFormat.OpenXml.Office2010.Excel;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using WorkOps.Extensions;
 using WorkOps.Models;
 using WorkOps.Models.Enums;
@@ -32,13 +31,12 @@ public partial class Index
         // 実績Dictionary
         var actualLookup = BuildActualLookup(actuals, from, to);
 
-        var models = BuildInputModels(
-            from,
-            to,
-            attendances,
-            actualLookup,
-            holidays);
+        // 編集不可かどうか
+        var (canEdits, isReadOnlyAll) = await GetCanEditAsync(from, to);
 
+        var models = BuildInputModels(
+            from, to, attendances, actualLookup, holidays,
+            canEdits, isReadOnlyAll);
         // 合計
         CalculateTotals(models);
 
@@ -134,6 +132,50 @@ public partial class Index
     }
 
     /// <summary>
+    /// 編集不可Dictionary生成
+    /// </summary>
+    /// <param name="from">開始日</param>
+    /// <param name="to">終了日</param>
+    /// <returns>日付（年×100＋月）ごとの編集可能フラグと全て編集不可かどうか</returns>
+    private async Task<(Dictionary<int, bool> canEdits,
+        bool isReadOnlyAll)>
+        GetCanEditAsync(DateOnly from, DateOnly to)
+    {
+        // 管理者かどうか
+        var isAdmin = await UserService.HasAdminRoleAsync();
+        // 自身のデータかどうか
+        var loginUserId = await UserService.GetUserIdAsync();
+        var isOwnData = UserId == loginUserId;
+
+        // 管理者でなく、自身のデータでない場合は全て編集不可
+        if (!isAdmin && !isOwnData)
+        {
+            return (new Dictionary<int, bool>(), true);
+        }
+
+        var fromYm = from.Year * 100 + from.Month;
+        var toYm = to.Year * 100 + to.Month;
+
+        var statuses = DbContext.TAttendanceStatus
+            .Where(s => s.UserId == UserId
+                && (s.Year * 100 + s.Month) <= toYm
+                && (s.Year * 100 + s.Month) >= fromYm)
+            .AsEnumerable()
+            .Select(s =>
+            {
+                var status = EnumExtensions.ToEnum<ApprovalStatus>(
+                    s.MApprovalStatusId);
+                var canEdit = ApprovalStatusService.CanEdit(
+                    status, isAdmin, isOwnData);
+                return (s.Year * 100 + s.Month, canEdit);
+            })
+            .ToDictionary(x => x.Item1, x => x.Item2)
+            ;
+
+        return (statuses, false);
+    }
+
+    /// <summary>
     /// InputModel作成
     /// </summary>
     /// <param name="from">開始日</param>
@@ -141,13 +183,17 @@ public partial class Index
     /// <param name="attendances">出退勤</param>
     /// <param name="actuals">実績</param>
     /// <param name="holidays">祝日</param>
+    /// <param name="canEdits">編集可能かどうか</param>
+    /// <param name="isReadOnlyAll">全て編集不可かどうか</param>
     /// <returns></returns>
     private List<InputModel> BuildInputModels(
-    DateOnly from,
-    DateOnly to,
-    List<TAttendance> attendances,
-    Dictionary<DateOnly, List<TActual>> actualLookup,
-    Dictionary<DateOnly, MHoliday> holidays)
+        DateOnly from,
+        DateOnly to,
+        List<TAttendance> attendances,
+        Dictionary<DateOnly, List<TActual>> actualLookup,
+        Dictionary<DateOnly, MHoliday> holidays,
+        Dictionary<int, bool> canEdits,
+        bool isReadOnlyAll)
     {
         var attendanceDict = attendances
             .GroupBy(a => a.Date)
@@ -197,6 +243,9 @@ public partial class Index
                             $"{a.MPhase.MProject.Name} {a.MPhase.Name}")),
                 LoginTime = attendance?.LoginTime,
                 LogoutTime = attendance?.LogoutTime,
+                CanEdit = !isReadOnlyAll
+                    && (!canEdits.TryGetValue(day.Year * 100 + day.Month,
+                        out var canEdit) || canEdit),
             };
 
             models.Add(model);
@@ -508,9 +557,6 @@ public partial class Index
         }
         await DbContext.SaveChangesAsync();
 
-        // クリックできるステータス更新
-        currentStatus = status;
-        clickableStatuses = await GetClickableStatusesAsync();
         return status;
     }
     #endregion // Status

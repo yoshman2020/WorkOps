@@ -1,10 +1,14 @@
 ﻿@page "/treports/edit"
 @using Microsoft.EntityFrameworkCore
+@using WorkOps.Extensions
 @using WorkOps.Models
+@using WorkOps.Models.Enums
+@using WorkOps.Models.Errors
 @using WorkOps.Utils
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
+@inject WorkOps.Services.ApprovalStatusService ApprovalStatusService
 @inject NavigationManager NavigationManager
 @inject ILogger<Edit> Logger
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
@@ -26,6 +30,7 @@ else
             <EditForm method="post" Model="TReport" OnValidSubmit="UpdateTReport" FormName="edit" Enhance>
                 <DataAnnotationsValidator />
                 <ValidationSummary role="alert" />
+                <ErrorAlert ErrorCode="@ErrorCode" />
                 <div class="mb-3">
                     <label for="username" class="form-label">担当者:</label>
                     <InputText id="username" @bind-Value="TReport!.UserName" class="form-control-plaintext" readonly />
@@ -81,6 +86,11 @@ else
     [SupplyParameterFromForm]
     private InputModel? TReport { get; set; }
 
+    /// <summary>
+    /// エラーコード
+    /// </summary>
+    private ErrorCode? ErrorCode { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         Logger.LogDebug("▽OnInitializedAsync");
@@ -121,7 +131,7 @@ else
                         detailModel.ProjectName = d.MProject?.Name ?? "その他";
                         return detailModel;
                     })
-                    .ToList();
+                .ToList();
         }
         catch (Exception ex)
         {
@@ -143,6 +153,23 @@ else
             {
                 return;
             }
+
+            // 承認ステータスを確認
+            var statusId = DbContext.TReport
+                .FirstOrDefault(s => s.Id == Id)
+                ?.MApprovalStatusId;
+
+            // 編集可能なステータスか確認
+            var canEdit = await ApprovalStatusService.CanEditAsync(
+                statusId, TReport.UserId);
+            if (!canEdit)
+            {
+                // 編集不可の場合はエラー
+                ErrorCode = WorkOps.Models.Errors.ErrorCode.AlreadySubmitted;
+                Logger.LogDebug("△UpdateTReport");
+                return;
+            }
+
             await DbContext.Entry(entity)
                 .Collection(e => e.TReportDetails)
                 .LoadAsync();

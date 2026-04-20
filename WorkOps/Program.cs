@@ -70,6 +70,7 @@ builder.Services.AddScoped<UserContextService>();
 builder.Services.AddScoped<InputModelService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<DateService>();
+builder.Services.AddScoped<ApprovalStatusService>();
 builder.Services.AddScoped<PrevInputCheckService>();
 builder.Services.Configure<AppSettings>(
     builder.Configuration.GetSection("AppSettings"));

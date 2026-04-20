@@ -1,10 +1,12 @@
 ﻿@page "/tattendances/delete"
+@using Microsoft.AspNetCore.Components
 @using Microsoft.EntityFrameworkCore
 @using WorkOps.Models
 @using WorkOps.Models.Errors
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
+@inject WorkOps.Services.ApprovalStatusService ApprovalStatusService
 @inject NavigationManager NavigationManager
 @inject ILogger<Delete> Logger
 
@@ -115,6 +117,31 @@
         Logger.LogDebug("▽DeleteTAttendance");
         try
         {
+
+            if (tattendance is null)
+            {
+                NavigationManager.NavigateTo("notfound");
+                return;
+            }
+
+            // 承認ステータスを確認
+            var statusId = DbContext.TAttendanceStatus
+                .FirstOrDefault(s => s.UserId == tattendance.UserId
+                    && s.Year == tattendance.Date.Year
+                    && s.Month == tattendance.Date.Month)
+                    ?.MApprovalStatusId;
+
+            // 編集可能なステータスか確認
+            var canEdit = await ApprovalStatusService.CanEditAsync(
+                statusId, tattendance.UserId);
+            if (!canEdit)
+            {
+                // 編集不可の場合はエラー
+                ErrorCode = WorkOps.Models.Errors.ErrorCode.AlreadySubmitted;
+                Logger.LogDebug("△DeleteTAttendance");
+                return;
+            }
+
             if (tattendance!.LoginTime != null || tattendance!.LogoutTime != null)
             {
                 // ログイン・ログアウトがある場合は更新
@@ -140,6 +167,10 @@
                 NavigationManager.NavigateTo(
                     $"/tattendances?userid={tattendance!.UserId}");
             }
+        }
+        catch (NavigationException)
+        {
+            throw;
         }
         catch (Exception ex)
         {

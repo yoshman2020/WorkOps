@@ -59,15 +59,28 @@
     <DisplayPropertyColumn Property="treport => treport.DateString" />
     <DisplayPropertyColumn Property="treport => treport.Description" />
     <TemplateColumn Context="treport">
-        <a href="@GetEditOrCreateUrl(treport)">編集</a> |
+        @if (treport.CanEdit)
+        {
+            <a href="@GetEditOrCreateUrl(treport)">編集</a>@: |
+        }
+        else
+        {
+            <span class="text-muted">編集</span><span> | </span>
+        }
         @if (treport.Id != 0)
         {
             <a href="@($"treports/details?id={treport.Id}")">詳細</a> @: |
+        }
+        else
+        {
+            <span class="text-muted">詳細</span><span> | </span>
+        }
+        @if (treport.Id != 0 && treport.CanEdit)
+        {
             <a href="@($"treports/delete?id={treport.Id}")">削除</a>
         }
         else
         {
-            <span class="text-muted">詳細</span><span> |</span>
             <span class="text-muted">削除</span>
         }
     </TemplateColumn>
@@ -160,7 +173,7 @@
         try
         {
             // ステータス更新
-            await UpdateStatusAsync(status);
+            await UpdateStatusAsync(status, reportId);
         }
         catch (Exception ex)
         {
@@ -220,6 +233,14 @@
                     && e.Date < nextMonday
                 );
 
+            // 管理者かどうか
+            var isAdmin = await UserService.HasAdminRoleAsync();
+            // 自身のデータかどうか
+            var loginUserId = await UserService.GetUserIdAsync();
+            var isOwnData = UserId == loginUserId;
+            // 編集不可
+            var isReadOnlyAll = !isAdmin && !isOwnData;
+
             var list = mondays.GroupJoin(treports,
                 monday => monday,
                 treport => treport.Date,
@@ -229,6 +250,9 @@
             foreach (var x  in list)
             {
                 var treport = x.treports.FirstOrDefault() ?? new();
+                var status = treport.MApprovalStatusId.HasValue
+                        ? (ApprovalStatus)treport.MApprovalStatusId.Value
+                        : ApprovalStatus.NotSubmitted;
                 var inputModel = new InputModel
                 {
                     Id = treport.Id,
@@ -239,10 +263,10 @@
                         .Where(d => !string.IsNullOrEmpty(d.MProject?.Name)
                             && d.MProject.Name != "その他")
                         .Select(d => d.MProject!.Name)),
-                    ApprovalStatus = treport.MApprovalStatusId.HasValue
-                        ? (ApprovalStatus)treport.MApprovalStatusId.Value
-                        : ApprovalStatus.NotSubmitted,
-                    ClickableStatuses = await GetClickableStatusesAsync(treport)
+                    ApprovalStatus = status,
+                    ClickableStatuses = await GetClickableStatusesAsync(treport),
+                    CanEdit = !isReadOnlyAll && ApprovalStatusService.CanEdit(
+                        status, isAdmin, isOwnData),
                 };
                 inputModels.Add(inputModel);
             }
@@ -300,9 +324,9 @@
     /// </summary>
     /// <param name="status">更新するステータス</param>
     /// <returns></returns>
-    private async Task UpdateStatusAsync(ApprovalStatus status)
+    private async Task UpdateStatusAsync(ApprovalStatus status, int reportId)
     {
-        var treport = await DbContext.TReport.FindAsync(InputModels!.First().Id);
+        var treport = await DbContext.TReport.FindAsync(reportId);
         if (treport is null)
         {
             return;

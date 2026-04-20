@@ -153,5 +153,22 @@ namespace WorkOps.Services
             }
             return string.Empty;
         }
+
+        /// <summary>
+        /// 編集不可判定
+        /// </summary>
+        /// <param name="userId">編集対象のデータのユーザーID</param>
+        /// <returns>編集不可かどうか</returns>
+        public async Task<bool> IsReadOnlyAll(string userId)
+        {
+            // 管理者かどうか
+            var isAdmin = await HasAdminRoleAsync();
+            // 自身のデータかどうか
+            var loginUserId = await GetUserIdAsync();
+            var isOwnData = userId == loginUserId;
+
+            // 管理者でなく、自身のデータでない場合は編集不可
+            return !isAdmin && !isOwnData;
+        }
     }
 }

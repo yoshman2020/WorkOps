@@ -52,4 +52,9 @@ public sealed class InputModel : BaseInputModel
     /// クリックできるステータス
     /// </summary>
     public List<ApprovalStatus> ClickableStatuses { get; set; } = [];
+
+    /// <summary>
+    /// 編集可能かどうか
+    /// </summary>
+    public bool CanEdit { get; set; } = false;
 }

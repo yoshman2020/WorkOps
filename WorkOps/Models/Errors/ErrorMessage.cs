@@ -22,6 +22,7 @@ public static class ErrorMessage
         ErrorCode.InternalServerError => "サーバーエラーが発生しました。",
         ErrorCode.Duplicate => "データが重複しています。",
         ErrorCode.HasChildren => "関連する{0}が存在します。",
+        ErrorCode.AlreadySubmitted => "提出済のため変更できません。",
         _ => "不明なエラーが発生しました。",
     }, args);
 }

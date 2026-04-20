@@ -129,4 +129,9 @@ public sealed class InputModel : BaseInputModel
     /// </summary>
     [Display(Name = "修正承認済み")]
     public bool IsApproved { get; set; } = false;
+
+    /// <summary>
+    /// 編集可能かどうか
+    /// </summary>
+    public bool CanEdit { get; set; } = false;
 }

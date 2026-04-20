@@ -4,6 +4,7 @@
 @using WorkOps.Models.Errors
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.UserService UserService
+@inject WorkOps.Services.ApprovalStatusService ApprovalStatusService
 @inject WorkOps.Services.InputModelService InputModelService
 @inject NavigationManager NavigationManager
 @inject ILogger<Create> Logger
@@ -132,6 +133,24 @@
             if (UserId is null || TAttendance is null || Date is null)
             {
                 NavigationManager.NavigateTo("notfound");
+                return;
+            }
+
+            // 承認ステータスを確認
+            var statusId = DbContext.TAttendanceStatus
+                .FirstOrDefault(s => s.UserId == UserId
+                    && s.Year == TAttendance.Date.Year
+                    && s.Month == TAttendance.Date.Month)
+                    ?.MApprovalStatusId;
+
+            // 編集可能なステータスか確認
+            var canEdit = await ApprovalStatusService.CanEditAsync(
+                statusId, UserId);
+            if (!canEdit)
+            {
+                // 編集不可の場合はエラー
+                ErrorCode = WorkOps.Models.Errors.ErrorCode.AlreadySubmitted;
+                Logger.LogDebug("△AddTAttendance");
                 return;
             }
 

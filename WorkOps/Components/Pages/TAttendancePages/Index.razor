@@ -70,15 +70,28 @@
     <DisplayPropertyColumn Property="tattendance => tattendance.OvertimeDurationString" />
     <TemplateColumn Context="tattendance" Class="text-nowrap">
         <div class="@GetRowClass(tattendance)">
-            <a href="@GetEditOrCreateUrl(tattendance)">編集</a> |
+            @if (tattendance.CanEdit)
+            {
+                <a href="@GetEditOrCreateUrl(tattendance)">編集</a>@: |
+            }
+            else
+            {
+                <span class="text-muted">編集</span><span> | </span>
+            }
             @if (tattendance.Id != 0)
             {
                 <a href="@($"tattendances/details?id={tattendance.Id}")">詳細</a> @: |
+            }
+            else
+            {
+                <span class="text-muted">詳細</span><span> | </span>
+            }
+            @if (tattendance.Id != 0 && tattendance.CanEdit)
+            {
                 <a href="@($"tattendances/delete?id={tattendance.Id}")">削除</a>
             }
             else
             {
-                <span class="text-muted">詳細</span><span> |</span>
                 <span class="text-muted">削除</span>
             }
         </div>

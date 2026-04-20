@@ -165,6 +165,8 @@ public partial class Index
         {
             // ステータス更新
             currentStatus = await UpdateStatusAsync(status);
+            // 再読込
+            await LoadSelectedDataAsync();
         }
         catch (Exception ex)
         {

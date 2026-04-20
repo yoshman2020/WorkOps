@@ -46,4 +46,9 @@ public enum ErrorCode
     /// 子要素あり
     /// </summary>
     HasChildren = 8,
+
+    /// <summary>
+    /// 提出済
+    /// </summary>
+    AlreadySubmitted = 9,
 }
