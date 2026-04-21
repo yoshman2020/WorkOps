@@ -460,9 +460,13 @@ public partial class Index
         var lastBusinessDay = GetLastBusinessDay(
             DateTo.Year, DateTo.Month, holidays);
 
-        if (DateOnly.FromDateTime(DateTime.Today) < lastBusinessDay)
+        if (DateOnly.FromDateTime(DateTime.Today) < lastBusinessDay
+            && !await DbContext.TAttendance
+                .Where(t => t.UserId == UserId
+                    && t.Date == lastBusinessDay)
+                .AnyAsync())
         {
-            // 最終営業日前は押下不可
+            // 最終営業日前で、最終営業日のデータが無いは押下不可
             return statuses;
         }
 
