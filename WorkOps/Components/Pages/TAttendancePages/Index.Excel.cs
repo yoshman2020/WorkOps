@@ -123,6 +123,8 @@ public partial class Index
         sheet.Cell(lastRow + 2, 3).Value = totalTime;
         sheet.Cell(lastRow + 2, 5).Value = "稼働日";
         sheet.Cell(lastRow + 2, 7).Value = workingDays;
+        sheet.Cell(lastRow + 2, 8).Value = "有給残";
+        sheet.Cell(lastRow + 2, 9).Value = paidLeaveRemaining;
 
         // --- スタイルの適用 ---
 
