@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components.QuickGrid;
 using WorkOps.Data;
 using WorkOps.Models;
 using WorkOps.Models.Enums;
+using WorkOps.Models.Errors;
 using WorkOps.Services;
 
 namespace WorkOps.Components.Pages.TAttendancePages;
@@ -58,6 +59,9 @@ public partial class Index
 
     // 前日・先週の未入力通知
     private string notifications = string.Empty;
+
+    // エラーコード
+    private ErrorCode errorCode = ErrorCode.None;
 
     // 承認ステータス
     private ApprovalStatus currentStatus = ApprovalStatus.NotSubmitted;
@@ -208,4 +212,32 @@ public partial class Index
         return "tattendances/edit?id=" + tattendance.Id;
     }
 
+    /// <summary>
+    /// 承認チェックボックス変更時
+    /// </summary>
+    /// <param name="e">イベント引数</param>
+    /// <param name="tattendance">対象行</param>
+    /// <returns></returns>
+    private async Task OnChkIsApprovedClickAsync(
+        ChangeEventArgs e, InputModel tattendance)
+    {
+        Logger.LogDebug("▽OnChkIsApprovedClick");
+        try
+        {
+            if (e.Value == null)
+            {
+                return;
+            }
+            tattendance.IsApproved = (bool)e.Value;
+            errorCode = await InputModelService
+                .SaveInputModelAsync<InputModel, TAttendance>(
+                    tattendance, tattendance.Id, false);
+
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnChkIsApprovedClick");
+    }
 }

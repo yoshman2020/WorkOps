@@ -21,7 +21,7 @@
 
     protected override void OnParametersSet()
     {
-        if (Message == null && ErrorCode != null
+        if (string.IsNullOrEmpty(Message) && ErrorCode != null
             && ErrorCode != WorkOps.Models.Errors.ErrorCode.None)
         {
             Message = ErrorMessage.GetMessage(

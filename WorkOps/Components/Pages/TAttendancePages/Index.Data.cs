@@ -243,6 +243,8 @@ public partial class Index
                             $"{a.MPhase.MProject.Name} {a.MPhase.Name}")),
                 LoginTime = attendance?.LoginTime,
                 LogoutTime = attendance?.LogoutTime,
+                IsModified = attendance?.IsModified ?? false,
+                IsApproved = attendance?.IsApproved ?? false,
                 CanEdit = !isReadOnlyAll
                     && (!canEdits.TryGetValue(day.Year * 100 + day.Month,
                         out var canEdit) || canEdit),

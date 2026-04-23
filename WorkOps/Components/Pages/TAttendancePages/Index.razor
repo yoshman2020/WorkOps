@@ -14,7 +14,7 @@
 
 <h1>出退勤</h1>
 
-<ErrorAlert Message="@notifications" />
+<ErrorAlert Message="@notifications" ErrorCode="@errorCode" />
 
 <form action="/tattendances" data-enhance data-parmanent>
     <div class="row">
@@ -107,8 +107,10 @@
         </HeaderTemplate>
         <ChildContent>
             <div class="form-check d-flex justify-content-center @GetRowClass(tattendance)">
-                <input class="form-check-input" type="checkbox" checked="@tattendance.IsModified"
-                       id="flexCheckChecked" disabled>
+                @if (tattendance.IsModified)
+                {
+                    <span class="bi-pencil-fill-modified"></span>
+                }
             </div>
         </ChildContent>
     </TemplateColumn>
@@ -118,8 +120,13 @@
         </HeaderTemplate>
         <ChildContent>
             <div class="form-check d-flex justify-content-center @GetRowClass(tattendance)">
-                <input class="form-check-input" type="checkbox" checked="@tattendance.IsApproved"
-                       id="flexCheckChecked" disabled="@hassNotAuthorized">
+                @if (tattendance.IsModified)
+                {
+                    <input class="form-check-input" type="checkbox"
+                        checked="@tattendance.IsApproved"
+                        @onchange="@(e => OnChkIsApprovedClickAsync(e, tattendance))"
+                        disabled="@(hassNotAuthorized || !tattendance.IsModified)">
+                }
             </div>
         </ChildContent>
     </TemplateColumn>
