@@ -113,7 +113,9 @@ public partial class Index
         Logger.LogDebug("▼LoadSelectedData");
         try
         {
-            (InputModels, Dates) = LoadData(DateFrom, DateTo, ProjectFilter);
+            (InputModels, Dates) = LoadData(
+                UserService, DbContext, UserId,
+                DateFrom, DateTo, ProjectFilter);
         }
         catch (Exception ex)
         {
@@ -129,7 +131,8 @@ public partial class Index
     /// <param name="dtTo">終了日</param>
     /// <param name="projectFilter">プロジェクト名フィルター</param>
     /// <returns></returns>
-    private (List<InputModel>?, IEnumerable<DateTime>?) LoadData(
+    private static (List<InputModel>?, IEnumerable<DateTime>?) LoadData(
+        UserService userService, ApplicationDbContext dbContext, string userId,
         DateOnly? dtFrom, DateOnly? dtTo, string projectFilter)
     {
         List<InputModel> inputModels = [];
@@ -145,7 +148,7 @@ public partial class Index
             var dateFrom = dtFrom!.Value;
             var dateTo = dtTo!.Value;
 
-            var userName = UserService.GetUserName(UserId);
+            var userName = userService.GetUserName(userId);
 
             dates = Enumerable
                 .Range(0, dateTo.DayNumber - dateFrom.DayNumber + 1)
@@ -157,16 +160,16 @@ public partial class Index
             var toDateTime = dateTo.ToDateTime(TimeOnly.MaxValue);
 
             // 期間内の工程のプロジェクト
-            var projectIds = DbContext.MPhase
+            var projectIds = dbContext.MPhase
                 .Where(phase =>
-                    DbContext.TPlan.Any(plan =>
-                        (string.IsNullOrEmpty(UserId) || plan.UserId == UserId) &&
+                    dbContext.TPlan.Any(plan =>
+                        (string.IsNullOrEmpty(userId) || plan.UserId == userId) &&
                         plan.MPhaseId == phase.Id &&
                         plan.StartDate <= toDateTime &&
                         plan.EndDate >= fromDateTime)
                     ||
-                    DbContext.TActual.Any(actual =>
-                        (string.IsNullOrEmpty(UserId) || actual.UserId == UserId) &&
+                    dbContext.TActual.Any(actual =>
+                        (string.IsNullOrEmpty(userId) || actual.UserId == userId) &&
                         actual.MPhaseId == phase.Id &&
                         actual.StartDate <= toDateTime &&
                         actual.EndDate >= fromDateTime)
@@ -178,18 +181,18 @@ public partial class Index
             var twoMonthsAgo = dateFrom.AddMonths(-1);
 
             // プロジェクトに紐づく工程
-            var phases = DbContext.MPhase
+            var phases = dbContext.MPhase
                 .Where(p =>
                     projectIds.Contains(p.MProjectId) &&
                     (
                         // 予定または実績あり
-                        DbContext.TPlan.Any(plan =>
-                            (string.IsNullOrEmpty(UserId) || plan.UserId == UserId) &&
+                        dbContext.TPlan.Any(plan =>
+                            (string.IsNullOrEmpty(userId) || plan.UserId == userId) &&
                             plan.MPhaseId == p.Id &&
                             DateOnly.FromDateTime(plan.EndDate) >= twoMonthsAgo)
                         ||
-                        DbContext.TActual.Any(actual =>
-                            (string.IsNullOrEmpty(UserId) || actual.UserId == UserId) &&
+                        dbContext.TActual.Any(actual =>
+                            (string.IsNullOrEmpty(userId) || actual.UserId == userId) &&
                             actual.MPhaseId == p.Id &&
                             DateOnly.FromDateTime(actual.EndDate) >= twoMonthsAgo)
                     )
@@ -228,8 +231,8 @@ public partial class Index
             }
 
             // 予定
-            var plans = DbContext.TPlan
-                .Where(e => string.IsNullOrEmpty(UserId) || e.UserId == UserId)
+            var plans = dbContext.TPlan
+                .Where(e => string.IsNullOrEmpty(userId) || e.UserId == userId)
                 .Where(e => (e.StartDate <= toDateTime && e.EndDate >= fromDateTime))
                 .ToList();
 
@@ -254,8 +257,8 @@ public partial class Index
             );
 
             // 実績
-            var actuals = DbContext.TActual
-                .Where(e => string.IsNullOrEmpty(UserId) || e.UserId == UserId)
+            var actuals = dbContext.TActual
+                .Where(e => string.IsNullOrEmpty(userId) || e.UserId == userId)
                 .Where(e => (e.StartDate <= toDateTime && e.EndDate >= fromDateTime))
                 .ToList();
 
@@ -287,8 +290,8 @@ public partial class Index
                 });
 
             // 工程別累計作業工数
-            var phaseTotalManHours = DbContext.TActual
-                .Where(e => string.IsNullOrEmpty(UserId) || e.UserId == UserId)
+            var phaseTotalManHours = dbContext.TActual
+                .Where(e => string.IsNullOrEmpty(userId) || e.UserId == userId)
                 .GroupBy(
                     a => a.MPhaseId,
                     a => a.ManHour
@@ -537,209 +540,33 @@ public partial class Index
     /// <returns></returns>
     private async Task DownloadExcelAsync()
     {
-        var userName = UserService.GetUserName(UserId);
-
-        using var workbook = new XLWorkbook();
-
-        for (int month = 1; month <= 12; month++)
+        Logger.LogDebug("▽DownloadExcelAsync");
+        if (InputModels == null || Dates == null)
         {
-            if (!GenerateExcel(workbook, month))
-            {
-                return;
-            }
+            Logger.LogDebug("△DownloadExcelAsync : No data to export.");
+            return;
         }
 
-        workbook.Worksheet($"{DateFrom.Month}月").SetTabActive();
-
-        using var ms = new MemoryStream();
-        workbook.SaveAs(ms);
-        ms.Position = 0;
-        using var streamRef = new DotNetStreamReference(stream: ms);
-
-        var fileName = $"{userName}スケジュール.xlsx";
-        await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
-    }
-
-    /// <summary>
-    /// Excelの１シートを生成
-    /// </summary>
-    /// <param name="workbook">WorkBook</param>
-    /// <param name="month">月（1～12）</param>
-    /// <retruns>結果 true:OK false:NG</retruns>
-    private bool GenerateExcel(
-        XLWorkbook workbook, int month)
-    {
-        var (inputModels, dates) = LoadData(
-            new DateOnly(DateFrom.Year, month, 1),
-            new DateOnly(DateFrom.Year, month,
-                DateTime.DaysInMonth(DateFrom.Year, month)),
-            ProjectFilter);
-
-        if (inputModels == null
-            || dates == null || !dates!.Any())
+        try
         {
-            return false;
+            var userName = UserService.GetUserName(UserId);
+
+            using var workbook = new XLWorkbook();
+
+            using var excelMs = CreateExcelMemoryStream(
+                UserService, DbContext, UserId,
+                DateFrom.Year, DateFrom.Month, ProjectFilter,
+                workbook);
+            using var streamRef = new DotNetStreamReference(stream: excelMs);
+
+            var fileName = $"{userName}スケジュール.xlsx";
+            await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
         }
-
-        // 不要行削除
-        inputModels = [.. inputModels.Where(i => i.RowClass != "d-none")];
-
-        var grayColor = XLColor.LightGray;
-        // 列幅 = センチメートル * 3.31889943
-        // 行高さ = センチメートル * 37.7007874015748
-
-        var sheet = workbook.Worksheets.Add($"{month}月");
-        sheet.SheetView.ZoomScale = 130;
-
-        // フォント設定
-        sheet.Style.Font.FontName = "ＭＳ Ｐゴシック";
-        sheet.Style.Font.FontSize = 11;
-        sheet.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        sheet.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-
-        sheet.Column(1).Width = 3;
-        sheet.Column(2).Width = 40.38;
-        sheet.Column(3).Width = 8.38;
-        sheet.Column(4).Width = 8.38;
-        sheet.Column(5).Width = 6;
-
-        // 日付列
-        const int StartColumn = 6;
-        // データ行
-        const int StartRow = 4;
-        // 最終列
-        var lastColumn = dates.Count() + StartColumn - 1;
-        // 最終行
-        var lastRow = inputModels.Count + StartRow - 1;
-
-        sheet.Cell(1, 1).Value = $"{month}月 業務スケジュール";
-        sheet.Cell(1, 1).Style.Font.Bold = true;
-        sheet.Cell(1, 1).Style.Font.FontSize = 14;
-        sheet.Cell(1, 1).Style.Fill.BackgroundColor = grayColor;
-
-        sheet.Cell(1, 6).Value = $"{DateFrom.Year}年{month}月";
-        sheet.Cell(1, 6).Style.Alignment.Horizontal
-            = XLAlignmentHorizontalValues.Left;
-        sheet.Cell(1, 6).Style.Font.Bold = true;
-        sheet.Range(1, 6, 1, lastColumn).Style.Fill.BackgroundColor = grayColor;
-        sheet.Range(1, 6, 1, lastColumn).Style.Border.OutsideBorder
-            = XLBorderStyleValues.Thin;
-
-        // ヘッダー行
-        sheet.Cell(StartRow - 1, 1).Value = "No.";
-        sheet.Cell(StartRow - 1, 2).Style.Alignment.Horizontal
-            = XLAlignmentHorizontalValues.Left;
-        sheet.Cell(StartRow - 1, 2).Value = "業務名、作業内容";
-        sheet.Cell(StartRow - 1, 3).Value = "作業工数";
-        sheet.Cell(StartRow - 1, 4).Value = "進捗率";
-        sheet.Cell(StartRow - 1, 5).Value = "終了";
-        sheet.Range(StartRow - 2, 1, StartRow - 1, lastColumn)
-            .Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-        sheet.Range(StartRow - 2, 1, StartRow - 1, lastColumn)
-            .Style.Border.InsideBorder = XLBorderStyleValues.Thin;
-        sheet.Range(StartRow, StartColumn, lastRow, lastColumn)
-            .Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
-
-        for (int col = StartColumn; col < dates.Count() + StartColumn; col++)
+        catch (Exception ex)
         {
-            var date = dates!.ElementAt(col - StartColumn);
-            sheet.Column(col).Width = 2.63;
-            sheet.Cell(2, col).Value = date.Day;
-            sheet.Cell(3, col).Value = $"{date:ddd}";
-
-            // 休日の場合は灰色にする
-            var dow = date.DayOfWeek;
-            var isHoliday = dow switch
-            {
-                DayOfWeek.Saturday => true,
-                DayOfWeek.Sunday => true,
-                _ => DbContext.MHoliday
-                    .Any(h => h.Date == DateOnly.FromDateTime(date))
-            };
-            if (isHoliday)
-            {
-                sheet.Range(StartRow - 2, col,
-                    StartRow + inputModels.Count - 1, col)
-                    .Style.Fill.BackgroundColor = grayColor;
-            }
+            Logger.LogError(ex, "Exception occurred!");
         }
-
-        sheet.Range(1, 1, 2, 5).Merge();
-        sheet.Range(1, 1, 2, 5).Style.Border.OutsideBorder
-            = XLBorderStyleValues.Thick;
-        sheet.Row(1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
-        sheet.Column(2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
-        sheet.Cell(1, 1).Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
-
-        // プロジェクト番号
-        var projectNo = 1;
-
-        for (int row = StartRow; row < inputModels.Count + StartRow; row++)
-        {
-            var inputModel = inputModels[row - StartRow];
-            // 行の高さ
-            var rowHeight = 19.22;
-            if (inputModel.RowClass == "project"
-                || inputModel.RowClass == "project2")
-            {
-                if (!string.IsNullOrEmpty(inputModel.PhaseName))
-                {
-                    // プロジェクト行
-                    sheet.Cell(row, 1).Value = projectNo;
-                    projectNo++;
-                }
-                sheet.Range(row, 1, row, lastColumn)
-                    .Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-                sheet.Range(row, 1, row, lastColumn)
-                    .Style.Border.InsideBorder = XLBorderStyleValues.Thin;
-            }
-            else
-            {
-                // 予定・実績行
-                rowHeight /= 2;
-
-                sheet.Range(row, 1, row, lastColumn)
-                    .Style.Border.LeftBorder = XLBorderStyleValues.Thin;
-                sheet.Range(row, 1, row, lastColumn)
-                    .Style.Border.RightBorder = XLBorderStyleValues.Thin;
-
-                var color = XLColor.Blue;
-                if (inputModel.IsActual)
-                {
-                    // 実績
-                    color = XLColor.Red;
-                    sheet.Range(row, 1, row, lastColumn)
-                        .Style.Border.BottomBorder = XLBorderStyleValues.Thin;
-                }
-                else
-                {
-                    // 予定
-                    for (int col = 1; col < StartColumn; col++)
-                    {
-                        sheet.Range(row, col, row + 1, col).Merge();
-                    }
-                    sheet.Range(row, 1, row, lastColumn)
-                        .Style.Border.TopBorder = XLBorderStyleValues.Thin;
-                }
-                sheet.Range(row, StartColumn, row, lastColumn)
-                    .Style.Font.FontColor = color;
-            }
-            sheet.Row(row).Height = rowHeight;
-
-            sheet.Cell(row, 2).Value = inputModel.PhaseName;
-            sheet.Cell(row, 3).Value = $"{inputModel.ManHour:#}";
-            sheet.Cell(row, 4).Value = inputModel.ProgressRateString;
-            sheet.Cell(row, 5).Value = $"{inputModel.EndDate:MM/dd}";
-
-            // 日付ごとの予定・実績
-            for (int d = 0; d < dates.Count(); d++)
-            {
-                var date = dates.ElementAt(d);
-                var (id, displayText, _) = inputModel.Cells[date];
-                sheet.Cell(row, d + StartColumn).Value = displayText;
-            }
-        }
-        return true;
+        Logger.LogDebug("△DownloadExcelAsync");
     }
 
     private static string? GetRowClass(InputModel tplanactual)

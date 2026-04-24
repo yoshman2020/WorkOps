@@ -14,6 +14,7 @@
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
+@inject WorkOps.Services.MailService MailService
 @inject IOptions<AppSettings> AppSettings
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -174,12 +175,43 @@
         {
             // ステータス更新
             await UpdateStatusAsync(status, reportId);
+
+            // メール送信
+            await SendEmailAsync(status);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Exception occurred!");
         }
         Logger.LogDebug("△OnStepClick");
+    }
+
+    /// <summary>
+    /// Word保存
+    /// </summary>
+    private async Task DownloadWordAsync()
+    {
+        Logger.LogDebug("▽DownloadWordAsync");
+        if (InputModels == null || InputModels.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var userName = UserService.GetUserName(UserId);
+
+            using var wordMs = await CreateWordMemoryStreamAsync(userName);
+            using var streamRef = new DotNetStreamReference(stream: wordMs);
+
+            var fileName = $"週間報告書{Month:yyyy-MM}({userName}).docx";
+            await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△DownloadWordAsync");
     }
 
     /// <summary>
@@ -256,6 +288,10 @@
                 var inputModel = new InputModel
                 {
                     Id = treport.Id,
+                    UserId = UserId,
+                    UserName = treport.User?.FullName
+                        ?? Users.FirstOrDefault(u => u.Id == UserId)?.FullName
+                        ?? "",
                     Date = x.monday,
                     DateString = $"{x.monday:MM/dd} ～ {x.monday.AddDays(6):MM/dd}",
                     Description = string.Join(',',
@@ -320,66 +356,6 @@
     }
 
     /// <summary>
-    /// 承認ステータスを更新する
-    /// </summary>
-    /// <param name="status">更新するステータス</param>
-    /// <returns></returns>
-    private async Task UpdateStatusAsync(ApprovalStatus status, int reportId)
-    {
-        var treport = await DbContext.TReport.FindAsync(reportId);
-        if (treport is null)
-        {
-            return;
-        }
-        treport.MApprovalStatusId = status == ApprovalStatus.NotSubmitted ? null : (int)status;
-        await DbContext.SaveChangesAsync();
-        await LoadSelectedDataAsync();
-    }
-
-    private async Task<List<ApprovalStatus>> GetClickableStatusesAsync(
-        TReport treport)
-    {
-        List<ApprovalStatus> statuses = [];
-        if (treport.Id == 0)
-        {
-            // 作成されていない場合はクリック不可
-            return statuses;
-        }
-
-        var status = EnumExtensions.ToEnum<ApprovalStatus>(treport.MApprovalStatusId);
-
-        if (await UserService.HasAdminRoleAsync())
-        {
-            // 管理者権限ありの場合は、提出済⇔承認済
-            switch (status)
-            {
-                case ApprovalStatus.SubmittedPendingManager:
-                    statuses.Add(ApprovalStatus.Approved);
-                    break;
-                case ApprovalStatus.Approved:
-                    statuses.Add(ApprovalStatus.SubmittedPendingManager);
-                    break;
-            }
-        }
-        var loginUserId = await UserService.GetUserIdAsync();
-        if (UserId == loginUserId)
-        {
-            // 自身のデータの場合は、未提出⇔提出済
-            switch (status)
-            {
-                case ApprovalStatus.NotSubmitted:
-                    statuses.Add(ApprovalStatus.SubmittedPendingManager);
-                    break;
-                case ApprovalStatus.SubmittedPendingManager:
-                    statuses.Add(ApprovalStatus.NotSubmitted);
-                    break;
-            }
-        }
-
-        return statuses;
-    }
-
-    /// <summary>
     /// 月を変更する
     /// </summary>
     /// <param name="offset">オフセット。0の場合は当月</param>
@@ -431,173 +407,5 @@
             + "&date=" + treport.Date;
         }
         return "treports/edit?id=" + treport.Id;
-    }
-
-    private async Task DownloadWordAsync()
-    {
-        if (InputModels == null || InputModels.Count == 0)
-        {
-            return;
-        }
-
-        try{
-            var userName = UserService.GetUserName(UserId);
-            var fileName = $"週間報告書{Month:yyyy-MM}({userName}).docx";
-
-            var ms = new MemoryStream();
-            try
-            {
-                using (var doc = WordprocessingDocument.Create(
-                    ms, WordprocessingDocumentType.Document))
-                {
-                    // Add a main document part. 
-                    MainDocumentPart mainPart = doc.AddMainDocumentPart();
-
-                    // Create the document structure and add some text.
-                    mainPart.Document = new Document();
-                    Body body = mainPart.Document.AppendChild(new Body());
-
-                    foreach (var (id, index)
-                        in InputModels!.Select((x, i) => (x.Id, i)))
-                    {
-                        var inputModel = await LoadDataDetailsAsync(id);
-                        if (inputModel is null)
-                        {
-                            continue;
-                        }
-                        var indexNo = StringUtil.ConvertDigitsToFullWidth(index);
-
-                        List<string> headerTexts = [
-                            $"{AppSettings.Value.CompanyName}　週間報告書　{Month:MM}月－{indexNo}",
-                            $"氏名：{userName}　期間：{inputModel.Date:yyyy/MM/dd} ～ {inputModel.Date.AddDays(6):yyyy/MM/dd}"
-                        ];
-
-                        var bodyParagraphs = CreateBodyParagraph(inputModel);
-
-                        AddSection(mainPart, body, headerTexts, bodyParagraphs,
-                            index != InputModels.Count);
-                    }
-                }
-
-                ms.Position = 0;
-                using var streamRef = new DotNetStreamReference(stream: ms);
-
-                await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
-            }
-            catch(Exception e)
-            {
-                var message = e.Message;
-            }
-            finally
-            {
-                ms.Dispose();
-            }
-        }
-        catch(Exception e)
-        {
-            var message = e.Message;
-        }
-    }
-
-    static void AddSection(MainDocumentPart mainPart, Body body,
-        List<string> headerTexts, List<Paragraph> bodyParagraphs, bool isBreak)
-    {
-        // 1. ヘッダーパーツの作成とテキスト設定
-        HeaderPart headerPart = mainPart.AddNewPart<HeaderPart>();
-        string headerId = mainPart.GetIdOfPart(headerPart);
-        headerPart.Header = new Header(
-            headerTexts.Select(t => new Paragraph(new Run(new Text(t))))
-        );
-
-        // 2. 本文の追加
-        foreach (var bodyParagraph in bodyParagraphs)
-        {
-            body.AppendChild(bodyParagraph);
-        }
-
-        // 3. セクション設定の構築
-        SectionProperties secProps = new SectionProperties();
-        secProps.AppendChild(new HeaderReference()
-        {
-            Type = HeaderFooterValues.Default, Id = headerId
-        });
-
-        if (isBreak)
-        {
-            // 「次のページから開始」を設定（改ページ）
-            secProps.AppendChild(new SectionType()
-            {
-                Val = SectionMarkValues.NextPage
-            });
-
-            // 文中のセクション区切りは、段落のプロパティ（ParagraphProperties）に含める
-            Paragraph lastPara = new Paragraph();
-            lastPara.AppendChild(new ParagraphProperties(secProps));
-            body.AppendChild(lastPara);
-        }
-        else
-        {
-            // 最終セクションはBodyの直下に追加する
-            body.AppendChild(secProps);
-        }
-    }
-
-    /// <summary>
-    /// 本文作成
-    /// </summary>
-    /// <param name="inputModel">入力モデル</param>
-    /// <returns>本文</returns>
-    private List<Paragraph> CreateBodyParagraph(InputModel inputModel)
-    {
-        var paragraphs = new List<Paragraph>();
-
-        if (inputModel is null || inputModel.InputDetailModels is null
-            || inputModel.InputDetailModels.Count == 0)
-        {
-            return paragraphs;
-        }
-
-        foreach (var (inputDetailModel, index) in inputModel.InputDetailModels
-            .Select((x, i) => (x, i)))
-        {
-            var indexNo = StringUtil.ConvertDigitsToFullWidth(index);
-            AddLines($"{indexNo}　{inputDetailModel.ProjectName}", paragraphs, false);
-            AddLines($"{indexNo}－１　作業内容", paragraphs, false);
-            AddLines(inputDetailModel.Description, paragraphs, true);
-            AddLines($"", paragraphs, false);
-            AddLines($"{indexNo}－２　課題・問題", paragraphs, false);
-            AddLines($"{inputDetailModel.Problem}", paragraphs, true);
-            AddLines($"", paragraphs, false);
-            AddLines($"{indexNo}－３　今後の予定", paragraphs, false);
-            AddLines($"{inputDetailModel.Schedule}", paragraphs, true);
-        }
-        AddLines($"", paragraphs, false);
-        AddLines($"◆残業時間", paragraphs, false);
-        AddLines($"1. 合計 0H", paragraphs, true);
-
-        return paragraphs;
-    }
-
-    /// <summary>
-    /// 改行で分割して追加
-    /// </summary>
-    /// <param name="text">テキスト</param>
-    /// <param name="paragraphs">章</param>
-    /// <param name="isIndent">インデントあり</param>
-    private void AddLines(string text, List<Paragraph> paragraphs,
-        bool isIndent)
-    {
-        var lines = text.Split('\n').Select(line =>
-            new Paragraph(
-                new ParagraphProperties(
-                    new Indentation() { Left = isIndent ? "360" : "0" }
-                ),
-                new Run(
-                    new Text($"{line}")
-            )));
-        foreach(var line in lines)
-        {
-            paragraphs.Add(line);
-        }        
     }
 }

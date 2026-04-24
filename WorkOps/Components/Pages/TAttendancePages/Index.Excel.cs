@@ -1,5 +1,4 @@
 ﻿using ClosedXML.Excel;
-using Microsoft.JSInterop;
 using WorkOps.Models.Attributes;
 
 namespace WorkOps.Components.Pages.TAttendancePages;
@@ -10,29 +9,24 @@ namespace WorkOps.Components.Pages.TAttendancePages;
 public partial class Index
 {
     /// <summary>
-    /// Excel保存
+    /// ExcelのMemoryStreamを生成
     /// </summary>
-    /// <returns></returns>
-    private async Task DownloadExcelAsync()
+    /// <param name="userName">ユーザー名</param>
+    /// <param name="workbook">Excelのワークブック</param>
+    /// <returns>生成されたMemoryStream</returns>
+    private async Task<MemoryStream> CreateExcelMemoryStreamAsync(
+        string? userName, XLWorkbook workbook)
     {
-        var userName = InputModels?.FirstOrDefault()?.UserName;
-
-        using var workbook = new XLWorkbook();
-
         for (int month = 1; month <= 12; month++)
         {
             await GenerateExcelAsync(workbook, month, userName ?? string.Empty);
         }
 
         workbook.Worksheet($"{DateFrom.Month}月").SetTabActive();
-
-        using var ms = new MemoryStream();
+        var ms = new MemoryStream();
         workbook.SaveAs(ms);
         ms.Position = 0;
-        using var streamRef = new DotNetStreamReference(stream: ms);
-
-        var fileName = $"{DateFrom:yyyy}年勤務表_{userName}.xlsx";
-        await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+        return ms;
     }
 
     /// <summary>

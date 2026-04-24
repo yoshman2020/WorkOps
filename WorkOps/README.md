@@ -79,3 +79,20 @@ ApplicationDbContextに
 public DbSet<TPaidLeave> TPaidLeave { get; set; } = default!;
 dotnet ef migrations add AddTPaidLeave --output-dir Data\Migrations --namespace WorkOps.Migrations
 dotnet ef database update
+
+# メールパスワード（開発用）
+dotnet user-secrets set "Smtp:Host" "smtp.example.com"
+dotnet user-secrets set "Smtp:Port" "587"
+dotnet user-secrets set "Smtp:User" "user@example.com"
+dotnet user-secrets set "Smtp:Password" "your-password"
+
+# メールパスワード（IIS）
+web.config
+<aspNetCore>
+  <environmentVariables>
+    <add name="Smtp__Host" value="smtp.example.com" />
+    <add name="Smtp__Port" value="587" />
+    <add name="Smtp__User" value="user@example.com" />
+    <add name="Smtp__Password" value="prod-password" />
+  </environmentVariables>
+</aspNetCore>

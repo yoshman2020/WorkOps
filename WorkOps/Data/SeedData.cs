@@ -51,6 +51,18 @@ public class SeedData
             await dbContext.SaveChangesAsync();
         }
 
+        if (!dbContext.MSystemSettings.Any())
+        {
+            // システム設定が存在しない場合は初期データを追加
+            dbContext.MSystemSettings.Add(
+                new Models.MSystemSettings
+                {
+                    IsSendSubmittedStatusMail = false,
+                }
+            );
+            await dbContext.SaveChangesAsync();
+        }
+
         if (dbContext.Users.Any())
         {
             // すでにデータが存在する場合はシード処理をスキップ

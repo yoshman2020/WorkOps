@@ -24,12 +24,12 @@ public class TPlan : BaseEntity
     /// <summary>
     /// 担当者ID
     /// </summary>
+    [ForeignKey(nameof(ApplicationUser))]
     public string UserId { get; set; } = string.Empty;
 
     /// <summary>
     /// 担当者
     /// </summary>
-    [ForeignKey("UserId")]
     public ApplicationUser? User { get; set; }
 
     /// <summary>

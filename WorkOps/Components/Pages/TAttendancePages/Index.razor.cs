@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Components;
+﻿using ClosedXML.Excel;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.QuickGrid;
+using Microsoft.JSInterop;
 using WorkOps.Data;
 using WorkOps.Models;
 using WorkOps.Models.Enums;
@@ -167,8 +169,19 @@ public partial class Index
         Logger.LogDebug("▽OnStepClick");
         try
         {
+            if (currentStatus == status || !clickableStatuses.Contains(status)
+            || errorCode != ErrorCode.None)
+            {
+                Logger.LogDebug("△OnStepClick : Status is not allowed.");
+                return;
+            }
+
             // ステータス更新
             currentStatus = await UpdateStatusAsync(status);
+
+            // メール送信
+            await SendEmailAsync(status);
+
             // 再読込
             await LoadSelectedDataAsync();
         }
@@ -177,6 +190,39 @@ public partial class Index
             Logger.LogError(ex, "Exception occurred!");
         }
         Logger.LogDebug("△OnStepClick");
+    }
+
+    /// <summary>
+    /// Excel保存
+    /// </summary>
+    /// <returns></returns>
+    private async Task DownloadExcelAsync()
+    {
+        Logger.LogDebug("▽DownloadExcelAsync");
+        if (InputModels == null || InputModels.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var userName = InputModels.FirstOrDefault()?.UserName;
+
+            using var workbook = new XLWorkbook();
+
+            using var excelMs = await CreateExcelMemoryStreamAsync(
+                userName, workbook);
+            using var streamRef = new DotNetStreamReference(stream: excelMs);
+
+            var fileName = $"{DateFrom:yyyy}年勤務表_{userName}.xlsx";
+            await JS.InvokeVoidAsync(
+                "downloadFileFromStream", fileName, streamRef);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△DownloadExcelAsync");
     }
 
     /// <summary>

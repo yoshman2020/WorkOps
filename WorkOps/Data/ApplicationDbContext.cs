@@ -1,8 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using WorkOps.Extensions;
 using WorkOps.Models;
-using WorkOps.Models.Enums;
 using WorkOps.Services;
 
 namespace WorkOps.Data
@@ -83,6 +81,11 @@ namespace WorkOps.Data
         /// 出退勤ステータス
         /// </summary>
         public DbSet<TAttendanceStatus> TAttendanceStatus { get; set; } = default!;
+
+        /// <summary>
+        /// システム設定
+        /// </summary>
+        public DbSet<MSystemSettings> MSystemSettings { get; set; } = default!;
 
         /// <summary>
         /// 保存
