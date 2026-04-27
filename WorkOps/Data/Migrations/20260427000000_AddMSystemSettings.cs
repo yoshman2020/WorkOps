@@ -42,6 +42,11 @@ namespace WorkOps.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_TReport_UserId",
+                table: "TReport",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_MSystemSettings_CreatedBy",
                 table: "MSystemSettings",
                 column: "CreatedBy");
@@ -50,13 +55,29 @@ namespace WorkOps.Migrations
                 name: "IX_MSystemSettings_UpdatedBy",
                 table: "MSystemSettings",
                 column: "UpdatedBy");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_TReport_AspNetUsers_UserId",
+                table: "TReport",
+                column: "UserId",
+                principalTable: "AspNetUsers",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Cascade);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropForeignKey(
+                name: "FK_TReport_AspNetUsers_UserId",
+                table: "TReport");
+
             migrationBuilder.DropTable(
                 name: "MSystemSettings");
+
+            migrationBuilder.DropIndex(
+                name: "IX_TReport_UserId",
+                table: "TReport");
         }
     }
 }

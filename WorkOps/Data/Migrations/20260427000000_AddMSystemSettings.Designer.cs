@@ -11,14 +11,14 @@ using WorkOps.Data;
 namespace WorkOps.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260424000000_AddMSystemSettings")]
+    [Migration("20260427000000_AddMSystemSettings")]
     partial class AddMSystemSettings
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.1");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.7");
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
                 {
@@ -876,6 +876,8 @@ namespace WorkOps.Migrations
 
                     b.HasIndex("UpdatedBy");
 
+                    b.HasIndex("UserId");
+
                     b.ToTable("TReport");
                 });
 
@@ -1272,11 +1274,19 @@ namespace WorkOps.Migrations
                         .WithMany()
                         .HasForeignKey("UpdatedBy");
 
+                    b.HasOne("WorkOps.Data.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("CreatedUser");
 
                     b.Navigation("MApprovalStatus");
 
                     b.Navigation("UpdatedUser");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("WorkOps.Models.TReportDetail", b =>

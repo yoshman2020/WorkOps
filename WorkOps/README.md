@@ -90,9 +90,9 @@ dotnet user-secrets set "Smtp:Password" "your-password"
 web.config
 <aspNetCore>
   <environmentVariables>
-    <add name="Smtp__Host" value="smtp.example.com" />
-    <add name="Smtp__Port" value="587" />
-    <add name="Smtp__User" value="user@example.com" />
-    <add name="Smtp__Password" value="prod-password" />
+    <environmentVariable name="Smtp__Host" value="smtp.example.com" />
+    <environmentVariable name="Smtp__Port" value="587" />
+    <environmentVariable name="Smtp__User" value="user@example.com" />
+    <environmentVariable name="Smtp__Password" value="prod-password" />
   </environmentVariables>
 </aspNetCore>
