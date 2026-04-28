@@ -54,6 +54,14 @@
             <dd class="col-sm-10">@tattendance.OvertimeDurationTime?.ToString("HH:mm")</dd>
         </dl>
         <dl class="row">
+            <dt class="col-sm-2">AM</dt>
+            <dd class="col-sm-10">@tattendance.WorkDetailAm</dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-sm-2">PM</dt>
+            <dd class="col-sm-10">@tattendance.WorkDetailPm</dd>
+        </dl>
+        <dl class="row">
             <dt class="col-sm-2">備考</dt>
             <dd class="col-sm-10">@tattendance.Remarks</dd>
         </dl>
@@ -88,10 +96,10 @@
         Logger.LogDebug("▽OnInitializedAsync");
         try
         {
-            (tattendance, _) = await InputModelService
+            (tattendance, var entity) = await InputModelService
                 .GetInputModelAsync<InputModel, TAttendance>(Id);
 
-            if (tattendance is null)
+            if (tattendance is null || entity is null)
             {
                 NavigationManager.NavigateTo("notfound");
             }
@@ -104,6 +112,13 @@
                 dateDateTime + tattendance!.WorkedDuration;
             tattendance!.OvertimeDurationTime =
                     dateDateTime + tattendance!.OvertimeDuration;
+
+            // 作業内容
+            await DbContext.Entry(entity!)
+                .Reference(e => e.TAttendanceDetail)
+                .LoadAsync();
+            tattendance!.WorkDetailAm = entity?.TAttendanceDetail?.WorkDetailAm;
+            tattendance!.WorkDetailPm = entity?.TAttendanceDetail?.WorkDetailPm;
         }
         catch (Exception ex)
         {

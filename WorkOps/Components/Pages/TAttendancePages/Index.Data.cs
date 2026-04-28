@@ -57,6 +57,7 @@ public partial class Index
         return [.. DbContext.TAttendance
             .Include(e => e.User)
             .Include(e => e.User!.MWorkTime)
+            .Include(e => e.TAttendanceDetail)
             .Where(e =>
                 e.UserId == UserId &&
                 from <= e.Date &&
@@ -209,6 +210,23 @@ public partial class Index
 
             dayActuals ??= [];
 
+            // 作業内容
+            var workDetailAm = attendance?.TAttendanceDetail is null
+                ? string.Join(",",
+                    dayActuals
+                        .Where(a => a.StartDate.TimeOfDay <= new TimeSpan(12, 0, 0))
+                        .Select(a =>
+                            $"{a.MPhase.MProject.Name} {a.MPhase.Name}"))
+                : attendance.TAttendanceDetail.WorkDetailAm
+                ;
+            var workDetailPm = attendance?.TAttendanceDetail is null
+                ? string.Join(",",
+                    dayActuals
+                        .Where(a => new TimeSpan(12, 0, 0) < a.EndDate.TimeOfDay)
+                        .Select(a =>
+                            $"{a.MPhase.MProject.Name} {a.MPhase.Name}"))
+                : attendance.TAttendanceDetail.WorkDetailPm;
+
             var model = new InputModel
             {
                 Id = attendance?.Id ?? 0,
@@ -231,16 +249,8 @@ public partial class Index
                     GetDulationString(day, attendance?.WorkedDuration),
                 OvertimeDurationString =
                     GetDulationString(day, attendance?.OvertimeDuration),
-                WorkDetailAm = string.Join(",",
-                    dayActuals
-                        .Where(a => a.StartDate.TimeOfDay <= new TimeSpan(12, 0, 0))
-                        .Select(a =>
-                            $"{a.MPhase.MProject.Name} {a.MPhase.Name}")),
-                WorkDetailPm = string.Join(",",
-                    dayActuals
-                        .Where(a => new TimeSpan(12, 0, 0) < a.EndDate.TimeOfDay)
-                        .Select(a =>
-                            $"{a.MPhase.MProject.Name} {a.MPhase.Name}")),
+                WorkDetailAm = workDetailAm,
+                WorkDetailPm = workDetailPm,
                 LoginTime = attendance?.LoginTime,
                 LogoutTime = attendance?.LogoutTime,
                 IsModified = attendance?.IsModified ?? false,

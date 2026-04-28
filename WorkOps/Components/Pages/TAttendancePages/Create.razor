@@ -58,6 +58,16 @@
                 <ValidationMessage For="() => TAttendance.OvertimeDurationTime" class="text-danger" />
             </div>
             <div class="mb-3">
+                <label for="workdetailam" class="form-label">AM:</label>
+                <InputText id="workdetailam" @bind-Value="TAttendance.WorkDetailAm" class="form-control" />
+                <ValidationMessage For="() => TAttendance.WorkDetailAm" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="workdetailpm" class="form-label">PM:</label>
+                <InputText id="workdetailpm" @bind-Value="TAttendance.WorkDetailPm" class="form-control" />
+                <ValidationMessage For="() => TAttendance.WorkDetailPm" class="text-danger" />
+            </div>
+            <div class="mb-3">
                 <label for="remarks" class="form-label">備考:</label>
                 <InputText id="remarks" @bind-Value="TAttendance.Remarks" class="form-control" />
                 <ValidationMessage For="() => TAttendance.Remarks" class="text-danger" />
@@ -122,6 +132,31 @@
         TAttendance.WorkedDurationTime = dateDate + workTime.MWorkTime.WorkedDuration;
         TAttendance.OvertimeDurationTime = dateDate;
         TAttendance.Name = stDate.ToString("yyyy/MM/dd(ddd)");
+
+        // 作業内容
+        var actuals = DbContext.TActual
+            .Include(e => e.MPhase)
+            .ThenInclude(p => p.MProject)
+            .ThenInclude(p => p.MCustomer)
+            .Where(e =>
+                e.UserId == UserId &&
+                Date <= DateOnly.FromDateTime(e.EndDate) &&
+                DateOnly.FromDateTime(e.StartDate) <= Date)
+            .AsEnumerable().ToList();
+        if (actuals.Count > 0)
+        {
+            // 実績がある場合は初期値として設定
+            TAttendance.WorkDetailAm = string.Join(",",
+                actuals
+                    .Where(a => a.StartDate.TimeOfDay <= new TimeSpan(12, 0, 0))
+                    .Select(a =>
+                        $"{a.MPhase.MProject.Name} {a.MPhase.Name}"));
+            TAttendance.WorkDetailPm = string.Join(",",
+                actuals
+                    .Where(a => new TimeSpan(12, 0, 0) < a.EndDate.TimeOfDay)
+                    .Select(a =>
+                        $"{a.MPhase.MProject.Name} {a.MPhase.Name}"));
+        }
     }
 
     // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
@@ -154,24 +189,32 @@
                 return;
             }
 
-            TAttendance!.UserId = UserId!;
-            TAttendance!.Date = Date!.Value;
-            TAttendance!.PaidLeaveDuration =
-                TAttendance!.PaidLeaveDurationTime?.TimeOfDay;
-            TAttendance!.WorkedDuration =
-                TAttendance.WorkedDurationTime?.TimeOfDay;
-            TAttendance!.OvertimeDuration =
-                TAttendance.OvertimeDurationTime?.TimeOfDay;
-            TAttendance!.IsModified = true;
-
-            ErrorCode = await InputModelService
-                .SaveInputModelAsync<InputModel, TAttendance>(
-                    TAttendance!, isCheckDuplicate: false);
-
-            if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
+            var entity = await InputModelService
+                .InputModelToEntity<InputModel, TAttendance>(TAttendance!);
+            if (entity is null || TAttendance is null)
             {
-                NavigationManager.NavigateTo($"/tattendances?userid={UserId}");
+                return;
             }
+
+            entity.UserId = UserId!;
+            entity.Date = Date!.Value;
+            entity.PaidLeaveDuration =
+                TAttendance.PaidLeaveDurationTime?.TimeOfDay;
+            entity.WorkedDuration =
+                TAttendance.WorkedDurationTime?.TimeOfDay;
+            entity.OvertimeDuration =
+                TAttendance.OvertimeDurationTime?.TimeOfDay;
+            entity.IsModified = true;
+
+            entity.TAttendanceDetail = new TAttendanceDetail
+            {
+                WorkDetailAm = TAttendance.WorkDetailAm,
+                WorkDetailPm = TAttendance.WorkDetailPm,
+            };
+
+            await InputModelService.SaveChangesAsync(entity);
+
+            NavigationManager.NavigateTo($"/tattendances?userid={UserId}");
         }
         catch (Exception ex)
         {

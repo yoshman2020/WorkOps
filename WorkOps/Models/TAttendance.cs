@@ -70,6 +70,11 @@ public class TAttendance : BaseEntity
     public bool IsApproved { get; set; } = false;
 
     /// <summary>
+    /// 出退勤詳細
+    /// </summary>
+    public TAttendanceDetail? TAttendanceDetail { get; set; }
+
+    /// <summary>
     /// 出退勤
     /// </summary>
     public TAttendance() : base()

@@ -58,6 +58,11 @@ namespace WorkOps.Data
         public DbSet<TAttendance> TAttendance { get; set; } = default!;
 
         /// <summary>
+        /// 出退勤詳細
+        /// </summary>
+        public DbSet<TAttendanceDetail> TAttendanceDetail { get; set; } = default!;
+
+        /// <summary>
         /// 週報
         /// </summary>
         public DbSet<TReport> TReport { get; set; } = default!;

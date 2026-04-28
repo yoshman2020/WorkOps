@@ -64,6 +64,16 @@ else
                     <ValidationMessage For="() => TAttendance.OvertimeDurationTime" class="text-danger" />
                 </div>
                 <div class="mb-3">
+                    <label for="workdetailam" class="form-label">AM:</label>
+                    <InputText id="workdetailam" @bind-Value="TAttendance.WorkDetailAm" class="form-control" />
+                    <ValidationMessage For="() => TAttendance.WorkDetailAm" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="workdetailpm" class="form-label">PM:</label>
+                    <InputText id="workdetailpm" @bind-Value="TAttendance.WorkDetailPm" class="form-control" />
+                    <ValidationMessage For="() => TAttendance.WorkDetailPm" class="text-danger" />
+                </div>
+                <div class="mb-3">
                     <label for="remarks" class="form-label">備考:</label>
                     <InputText id="remarks" @bind-Value="TAttendance.Remarks" class="form-control" />
                     <ValidationMessage For="() => TAttendance.Remarks" class="text-danger" />
@@ -111,24 +121,62 @@ else
                 return;
             }
 
-            (TAttendance, var _) = await InputModelService
+            (TAttendance, var entity) = await InputModelService
                 .GetInputModelAsync<InputModel, TAttendance>(Id);
 
-            if (TAttendance is null)
+            if (TAttendance is null || entity is null)
             {
                 NavigationManager.NavigateTo("notfound");
                 return;
             }
 
-            TAttendance!.UserName = UserService.GetUserName(TAttendance!.UserId);
+            TAttendance.UserName = UserService.GetUserName(TAttendance.UserId);
 
-            var dateDateTime = TAttendance!.Date.ToDateTime(TimeOnly.MinValue);
-            TAttendance!.PaidLeaveDurationTime =
-                dateDateTime + TAttendance!.PaidLeaveDuration;
-            TAttendance!.WorkedDurationTime =
-                dateDateTime + TAttendance!.WorkedDuration;
-            TAttendance!.OvertimeDurationTime =
-                    dateDateTime + TAttendance!.OvertimeDuration;
+            var dateDateTime = TAttendance.Date.ToDateTime(TimeOnly.MinValue);
+            TAttendance.PaidLeaveDurationTime =
+                dateDateTime + TAttendance.PaidLeaveDuration;
+            TAttendance.WorkedDurationTime =
+                dateDateTime + TAttendance.WorkedDuration;
+            TAttendance.OvertimeDurationTime =
+                    dateDateTime + TAttendance.OvertimeDuration;
+
+            // 作業内容
+            await DbContext.Entry(entity!)
+                .Reference(e => e.TAttendanceDetail)
+                .LoadAsync();
+
+            if (entity.TAttendanceDetail is not null)
+            {
+                TAttendance.WorkDetailAm = entity.TAttendanceDetail?.WorkDetailAm;
+                TAttendance.WorkDetailPm = entity.TAttendanceDetail?.WorkDetailPm;
+            }
+            else
+            {
+                // 作業内容未入力の場合は実績を取得
+                var actuals = DbContext.TActual
+                    .Include(e => e.MPhase)
+                    .ThenInclude(p => p.MProject)
+                    .ThenInclude(p => p.MCustomer)
+                    .Where(e =>
+                        e.UserId == TAttendance.UserId &&
+                        TAttendance.Date <= DateOnly.FromDateTime(e.EndDate) &&
+                        DateOnly.FromDateTime(e.StartDate) <= TAttendance.Date)
+                    .AsEnumerable().ToList();
+                if (actuals.Count > 0)
+                {
+                    // 実績がある場合は初期値として設定
+                    TAttendance.WorkDetailAm = string.Join(",",
+                        actuals
+                            .Where(a => a.StartDate.TimeOfDay <= new TimeSpan(12, 0, 0))
+                            .Select(a =>
+                                $"{a.MPhase.MProject.Name} {a.MPhase.Name}"));
+                    TAttendance.WorkDetailPm = string.Join(",",
+                        actuals
+                            .Where(a => new TimeSpan(12, 0, 0) < a.EndDate.TimeOfDay)
+                            .Select(a =>
+                                $"{a.MPhase.MProject.Name} {a.MPhase.Name}"));
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -149,37 +197,57 @@ else
             return;
         }
 
-        // 承認ステータスを確認
-        var statusId = DbContext.TAttendanceStatus
-            .FirstOrDefault(s => s.UserId == TAttendance.UserId
-                && s.Year == TAttendance.Date.Year
-                && s.Month == TAttendance.Date.Month)
-                ?.MApprovalStatusId;
-
-        // 編集可能なステータスか確認
-        var canEdit = await ApprovalStatusService.CanEditAsync(
-            statusId, TAttendance.UserId);
-        if (!canEdit)
-        {
-            // 編集不可の場合はエラー
-            ErrorCode = WorkOps.Models.Errors.ErrorCode.AlreadySubmitted;
-            Logger.LogDebug("△UpdateTAttendance");
-            return;
-        }
-
-        TAttendance!.PaidLeaveDuration =
-            TAttendance!.PaidLeaveDurationTime?.TimeOfDay;
-        TAttendance!.WorkedDuration =
-            TAttendance!.WorkedDurationTime?.TimeOfDay;
-        TAttendance!.OvertimeDuration =
-            TAttendance!.OvertimeDurationTime?.TimeOfDay;
-        TAttendance!.IsModified = true;
-
         try
         {
-            ErrorCode = await InputModelService
-                .SaveInputModelAsync<InputModel, TAttendance>(TAttendance!, Id,
-                    false);
+            var entity = await InputModelService
+                .InputModelToEntity<InputModel, TAttendance>(TAttendance!, Id);
+            if (entity is null || TAttendance is null)
+            {
+                return;
+            }
+
+            // 承認ステータスを確認
+            var statusId = DbContext.TAttendanceStatus
+                .FirstOrDefault(s => s.UserId == TAttendance.UserId
+                    && s.Year == TAttendance.Date.Year
+                    && s.Month == TAttendance.Date.Month)
+                    ?.MApprovalStatusId;
+
+            // 編集可能なステータスか確認
+            var canEdit = await ApprovalStatusService.CanEditAsync(
+                statusId, TAttendance.UserId);
+            if (!canEdit)
+            {
+                // 編集不可の場合はエラー
+                ErrorCode = WorkOps.Models.Errors.ErrorCode.AlreadySubmitted;
+                Logger.LogDebug("△UpdateTAttendance");
+                return;
+            }
+
+            entity.PaidLeaveDuration =
+                TAttendance!.PaidLeaveDurationTime?.TimeOfDay;
+            entity.WorkedDuration =
+                TAttendance!.WorkedDurationTime?.TimeOfDay;
+            entity.OvertimeDuration =
+                TAttendance!.OvertimeDurationTime?.TimeOfDay;
+            entity.IsModified = true;
+
+            // 作業内容
+            if (entity.TAttendanceDetail is null)
+            {
+                entity.TAttendanceDetail = new TAttendanceDetail
+                    {
+                        WorkDetailAm = TAttendance.WorkDetailAm,
+                        WorkDetailPm = TAttendance.WorkDetailPm
+                    };
+            }
+            else
+            {
+                entity.TAttendanceDetail.WorkDetailAm = TAttendance.WorkDetailAm;
+                entity.TAttendanceDetail.WorkDetailPm = TAttendance.WorkDetailPm;
+            }
+
+            await InputModelService.SaveChangesAsync(entity);
         }
         catch (DbUpdateConcurrencyException ex)
         {
@@ -194,11 +262,8 @@ else
             }
         }
 
-        if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
-        {
-            NavigationManager.NavigateTo(
+        NavigationManager.NavigateTo(
                 $"/tattendances?userid={TAttendance!.UserId}");
-        }
         Logger.LogDebug("△UpdateTAttendance");
     }
 
