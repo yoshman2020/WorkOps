@@ -7,7 +7,8 @@ namespace WorkOps.Services;
 /// メール送信
 /// </summary>
 /// <param name="config">環境変数、User Secrets、appsettings.jsonなどの設定</param>
-public class MailService(IConfiguration config)
+/// <param name="logger">ログ出力用のロガー</param>
+public class MailService(IConfiguration config, ILogger<MailService> logger)
 {
     /// <summary>
     /// メール送信（ファイル添付あり）
@@ -29,6 +30,8 @@ public class MailService(IConfiguration config)
             throw new InvalidOperationException(
                 "SMTP settings are not properly configured.");
         }
+        logger.LogInformation("Sending email to: {To} subject: {Subject}",
+            config["Smtp:User"], subject);
 
         var message = new MimeMessage();
 
@@ -53,10 +56,12 @@ public class MailService(IConfiguration config)
 
         using var client = new SmtpClient();
 
+        var useSsl = int.Parse(config["Smtp:Port"]!) == 465;
+
         await client.ConnectAsync(
             config["Smtp:Host"]!,
             int.Parse(config["Smtp:Port"]!),
-            false);
+            useSsl);
 
         await client.AuthenticateAsync(
             config["Smtp:User"]!,
