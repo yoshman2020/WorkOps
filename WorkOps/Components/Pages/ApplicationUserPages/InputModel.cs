@@ -57,6 +57,28 @@ public class InputModel
     public string IsPrevReminderEnabledStr => IsPrevReminderEnabled ? "有効" : "無効";
 
     /// <summary>
+    /// 出退勤提出時にメール送信する
+    /// </summary>
+    [Display(Name = "出退勤提出時にメール送信する")]
+    public bool IsSendAttendanceEmail { get; set; } = false;
+
+    /// <summary>
+    /// 出退勤提出時にメール送信する文字列
+    /// </summary>
+    public string IsSendAttendanceEmailStr => IsSendAttendanceEmail ? "有効" : "無効";
+
+    /// <summary>
+    /// 週間報告書提出時にメール送信する
+    /// </summary>
+    [Display(Name = "週間報告書提出時にメール送信する")]
+    public bool IsSendReportEmail { get; set; } = false;
+
+    /// <summary>
+    /// 週間報告書提出時にメール送信する文字列
+    /// </summary>
+    public string IsSendReportEmailStr => IsSendReportEmail ? "有効" : "無効";
+
+    /// <summary>
     /// 削除済み
     /// </summary>
     [Display(Name = "削除")]

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using WorkOps.Extensions;
 using WorkOps.Models;
 using WorkOps.Models.Enums;
+using WorkOps.Services;
 
 namespace WorkOps.Components.Pages.TAttendancePages;
 
@@ -234,8 +235,16 @@ public partial class Index
         }
 
         // メール送信
-        await MailService.SendWithAttachmentAsync(
-            "勤務表", "勤務表送付",
+        var users = await UserService.GetUsersAsync();
+        var sendUsers = users.Where(u => u.IsSendAttendanceEmail == true)
+            .Select(u => u.Email);
+        if (sendUsers is null || !sendUsers.Any())
+        {
+            // メール送信対象がいない場合はメール送信しない
+            return;
+        }
+        await MailService.SendWithAttachmentAsync(sendUsers!,
+            $"勤務表（{userName} {DateFrom:MM}月）", "勤務表送付",
             [(excelMs.ToArray(),
             $"{DateFrom:yyyy}年勤務表_{userName}.xlsx")]);
     }

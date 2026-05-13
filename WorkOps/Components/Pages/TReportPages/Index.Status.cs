@@ -116,8 +116,16 @@ public partial class Index
         }
 
         // メール送信
-        await MailService.SendWithAttachmentAsync(
-            "週間報告書", "週間報告書送付",
+        var users = await UserService.GetUsersAsync();
+        var sendUsers = users.Where(u => u.IsSendReportEmail == true)
+            .Select(u => u.Email);
+        if (sendUsers is null || !sendUsers.Any())
+        {
+            // メール送信対象がいない場合はメール送信しない
+            return;
+        }
+        await MailService.SendWithAttachmentAsync(sendUsers!,
+            $"週間報告書（{userName} {Month:yyyy/MM/dd}）", "週間報告書送付",
             [
                 (wordMs.ToArray(),
                     $"週間報告書{Month:yyyy-MM}({userName}).docx"),

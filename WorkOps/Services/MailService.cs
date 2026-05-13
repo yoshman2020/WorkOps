@@ -13,14 +13,21 @@ public class MailService(IConfiguration config, ILogger<MailService> logger)
     /// <summary>
     /// メール送信（ファイル添付あり）
     /// </summary>
+    /// <param name="to">送信先メールアドレス</param>
     /// <param name="subject">件名</param>
     /// <param name="textBody">本文</param>
     /// <param name="files">添付ファイルのバイト配列とファイル名のタプルのリスト</param>
     /// <throws="ArgumentNullException">fileBytesがnullの場合</exception>
     /// <throws="InvalidOperationException">SMTPの設定が行われていない場合</exception>
-    public async Task SendWithAttachmentAsync(string subject, string textBody,
+    public async Task SendWithAttachmentAsync(IEnumerable<string> to,
+        string subject, string textBody,
         IEnumerable<(byte[] FileBytes, string FileName)> files)
     {
+        if (to == null || to.Any() == false)
+        {
+            throw new ArgumentNullException(
+               "send to is not specified.");
+        }
         if (config is null ||
             config["Smtp:Host"] == null ||
             config["Smtp:Port"] == null ||
@@ -31,12 +38,12 @@ public class MailService(IConfiguration config, ILogger<MailService> logger)
                 "SMTP settings are not properly configured.");
         }
         logger.LogInformation("Sending email to: {To} subject: {Subject}",
-            config["Smtp:User"], subject);
+            to, subject);
 
         var message = new MimeMessage();
 
         message.From.Add(new MailboxAddress("App", config["Smtp:User"]!));
-        message.To.Add(new MailboxAddress("", config["Smtp:User"]!));
+        message.To.AddRange(to.Select(x => MailboxAddress.Parse(x)));
         message.Subject = subject;
 
         var builder = new BodyBuilder

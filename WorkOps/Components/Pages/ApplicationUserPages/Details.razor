@@ -38,6 +38,10 @@
             <dd class="col-sm-10">@applicationuser.WorkTimeString</dd>
             <dt class="col-sm-2">前日・先週の未入力を通知する</dt>
             <dd class="col-sm-10">@applicationuser.IsPrevReminderEnabledStr</dd>
+            <dt class="col-sm-2">出退勤提出時にメール送信する</dt>
+            <dd class="col-sm-10">@applicationuser.IsSendAttendanceEmailStr</dd>
+            <dt class="col-sm-2">週間報告書提出時にメール送信する</dt>
+            <dd class="col-sm-10">@applicationuser.IsSendReportEmailStr</dd>
         </dl>
         <QuickGrid Items="applicationuser.PaidLeaves.AsQueryable()" TGridItem="InputPaidLeaveModel" Class="dl-quickgrid">
             <DisplayPropertyColumn Property="paidLeave => paidLeave.GrantedDays" />
@@ -97,6 +101,8 @@
                     ? $"{workTime.StartTime} - {workTime.EndTime}"
                     : "",
                 IsPrevReminderEnabled = user!.IsPrevReminderEnabled,
+                IsSendAttendanceEmail = user.IsSendAttendanceEmail,
+                IsSendReportEmail = user.IsSendReportEmail,
                 PaidLeaves = paidLeaves,
             };
             PropertyUtil.CopyProperties(entity, applicationuser);

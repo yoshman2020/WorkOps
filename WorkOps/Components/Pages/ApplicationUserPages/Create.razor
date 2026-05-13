@@ -81,6 +81,16 @@
                 <ValidationMessage For="() => Input.IsPrevReminderEnabled" class="text-danger" />
             </div>
             <div class="mb-3">
+                <InputCheckbox id="issendattendanceemail" @bind-Value="Input.IsSendAttendanceEmail" class="form-check-input" />
+                <label for="issendattendanceemail" class="form-label">出退勤提出時にメール送信する</label>
+                <ValidationMessage For="() => Input.IsSendAttendanceEmail" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <InputCheckbox id="issendreportemail" @bind-Value="Input.IsSendReportEmail" class="form-check-input" />
+                <label for="issendreportemail" class="form-label">週間報告書提出時にメール送信する</label>
+                <ValidationMessage For="() => Input.IsSendReportEmail" class="text-danger" />
+            </div>
+            <div class="mb-3">
                 <QuickGrid Class="table" Items="Input.PaidLeaves.AsQueryable()" TGridItem="InputPaidLeaveModel">
                     <TemplateColumn Context="paidLeave" Title="有給休暇日数">
                         <InputNumber @bind-Value="paidLeave.GrantedDays" class="form-control" />
@@ -148,6 +158,8 @@
             user.FullName = Input.FullName;
             user.WorkTimeId = Input.WorkTimeId;
             user.IsPrevReminderEnabled = Input.IsPrevReminderEnabled;
+            user.IsSendAttendanceEmail = Input.IsSendAttendanceEmail;
+            user.IsSendReportEmail = Input.IsSendReportEmail;
 
             await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
             var emailStore = GetEmailStore();

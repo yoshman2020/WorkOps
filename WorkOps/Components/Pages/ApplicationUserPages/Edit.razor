@@ -70,6 +70,16 @@ else
                     <ValidationMessage For="() => ApplicationUser.IsPrevReminderEnabled" class="text-danger" />
                 </div>
                 <div class="mb-3">
+                    <InputCheckbox id="issendattendanceemail" @bind-Value="ApplicationUser.IsSendAttendanceEmail" class="form-check-input" />
+                    <label for="issendattendanceemail" class="form-label">出退勤提出時にメール送信する</label>
+                    <ValidationMessage For="() => ApplicationUser.IsSendAttendanceEmail" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <InputCheckbox id="issendreportemail" @bind-Value="ApplicationUser.IsSendReportEmail" class="form-check-input" />
+                    <label for="issendreportemail" class="form-label">週間報告書提出時にメール送信する</label>
+                    <ValidationMessage For="() => ApplicationUser.IsSendReportEmail" class="text-danger" />
+                </div>
+                <div class="mb-3">
                     <QuickGrid Class="table" Items="ApplicationUser.PaidLeaves.AsQueryable()" TGridItem="InputPaidLeaveModel">
                         <TemplateColumn Context="paidLeave" Title="有給休暇日数">
                             <InputNumber @bind-Value="paidLeave.GrantedDays" class="form-control" />
@@ -149,6 +159,8 @@ else
                     ? $"{workTime.StartTime} - {workTime.EndTime}"
                     : "",
                 IsPrevReminderEnabled = user!.IsPrevReminderEnabled,
+                IsSendAttendanceEmail = user.IsSendAttendanceEmail,
+                IsSendReportEmail = user.IsSendReportEmail,
                 PaidLeaves = paidLeaves,
             };
             PropertyUtil.CopyProperties(entity, ApplicationUser);
@@ -227,12 +239,17 @@ else
 
             if (user.FullName != ApplicationUser.FullName
                 || user.WorkTimeId != ApplicationUser!.WorkTimeId
-                || user.IsPrevReminderEnabled != ApplicationUser!.IsPrevReminderEnabled)
+                || user.IsPrevReminderEnabled != ApplicationUser!.IsPrevReminderEnabled
+                || user.IsSendAttendanceEmail != ApplicationUser!.IsSendAttendanceEmail
+                || user.IsSendReportEmail != ApplicationUser!.IsSendReportEmail
+            )
             {
                 user.FullName = ApplicationUser.FullName;
                 // 勤務時間変更
                 user.WorkTimeId = ApplicationUser!.WorkTimeId;
                 user.IsPrevReminderEnabled = ApplicationUser!.IsPrevReminderEnabled;
+                user.IsSendAttendanceEmail = ApplicationUser!.IsSendAttendanceEmail;
+                user.IsSendReportEmail = ApplicationUser!.IsSendReportEmail;
                 DbContext.Update(user);
                 await DbContext.SaveChangesAsync();
             }
