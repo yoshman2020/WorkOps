@@ -25,8 +25,7 @@ public class MailService(IConfiguration config, ILogger<MailService> logger)
     {
         if (to == null || to.Any() == false)
         {
-            throw new ArgumentNullException(
-               "send to is not specified.");
+            throw new ArgumentNullException(nameof(to), "send to is not specified.");
         }
         if (config is null ||
             config["Smtp:Host"] == null ||
