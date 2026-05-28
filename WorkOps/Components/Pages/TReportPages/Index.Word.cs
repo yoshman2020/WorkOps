@@ -29,7 +29,7 @@ public partial class Index
             Body body = mainPart.Document.AppendChild(new Body());
 
             foreach (var (id, index)
-                in InputModels!.Select((x, i) => (x.Id, i)))
+                in InputModels!.Where(x => x.Id != 0).Select((x, i) => (x.Id, i)))
             {
                 var inputModel = await LoadDataDetailsAsync(id);
                 if (inputModel is null)
@@ -46,7 +46,7 @@ public partial class Index
                 var bodyParagraphs = CreateBodyParagraph(inputModel);
 
                 AddSection(mainPart, body, headerTexts, bodyParagraphs,
-                    index != InputModels!.Count - 1);
+                    index != InputModels!.Count(x => x.Id != 0) - 1);
             }
         }
 
