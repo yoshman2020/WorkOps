@@ -215,16 +215,20 @@ public partial class Index
                 ? string.Join(",",
                     dayActuals
                         .Where(a => a.StartDate.TimeOfDay <= new TimeSpan(12, 0, 0))
-                        .Select(a =>
-                            $"{a.MPhase.MProject.Name} {a.MPhase.Name}"))
+                        // その他の場合は工程のみを表示
+                        .Select(a => a.MPhase.MProject.MCustomer.Name == "その他"
+                            ? a.MPhase.Name
+                            : $"{a.MPhase.MProject.Name} {a.MPhase.Name}"))
                 : attendance.TAttendanceDetail.WorkDetailAm
                 ;
             var workDetailPm = attendance?.TAttendanceDetail is null
                 ? string.Join(",",
                     dayActuals
                         .Where(a => new TimeSpan(12, 0, 0) < a.EndDate.TimeOfDay)
-                        .Select(a =>
-                            $"{a.MPhase.MProject.Name} {a.MPhase.Name}"))
+                        // その他の場合は工程のみを表示
+                        .Select(a => a.MPhase.MProject.MCustomer.Name == "その他"
+                            ? a.MPhase.Name
+                            : $"{a.MPhase.MProject.Name} {a.MPhase.Name}"))
                 : attendance.TAttendanceDetail.WorkDetailPm;
 
             var model = new InputModel
