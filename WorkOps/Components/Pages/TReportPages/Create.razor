@@ -129,6 +129,7 @@
                     : $"{g.Max(e => e.MPhase.MProject.MCustomer.Name)} {g.Max(e => e.MPhase.MProject.Name)}",
                 Description = GetDescription(g),
             })
+            .OrderBy(x => x.ProjectName == "その他" ? 1 : 0)
             .ToList();
         ;
 
