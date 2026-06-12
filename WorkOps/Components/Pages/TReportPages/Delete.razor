@@ -93,6 +93,9 @@
             treport!.UserName = UserService.GetUserName(treport.UserId);
             await DbContext.Entry(entity!)
                 .Collection(e => e.TReportDetails)
+                .Query()
+                .Include(d => d.MProject)
+                .Include(d => d.MProject!.MCustomer)
                 .LoadAsync();
 
             treport.InputDetailModels = entity!.TReportDetails
@@ -105,7 +108,10 @@
                         PropertyUtil.CopyProperties(d, detailModel);
                         detailModel.IndexNo =
                             StringUtil.ConvertDigitsToFullWidth(index);
-                        detailModel.ProjectName = d.MProject?.Name ?? "その他";
+                        detailModel.ProjectName = d.MProject?.Name == "その他"
+                            ? "その他"
+                            : $"{d.MProject?.MCustomer?.Name} {d.MProject?.Name}"
+                            ?? "その他";
                         return detailModel;
                     })
                     .ToList();

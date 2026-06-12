@@ -260,6 +260,7 @@
             var treports = DbContext.TReport
                 .Include(e => e.TReportDetails)
                 .ThenInclude(td => td.MProject)
+                .ThenInclude(p => p!.MCustomer)
                 .Where(e => e.UserId == UserId
                     && firstMonday <= e.Date
                     && e.Date < nextMonday
@@ -298,7 +299,8 @@
                         x.treports.SelectMany(t => t.TReportDetails)
                         .Where(d => !string.IsNullOrEmpty(d.MProject?.Name)
                             && d.MProject.Name != "その他")
-                        .Select(d => d.MProject!.Name)),
+                        .Select(d =>
+                            $"{d.MProject?.MCustomer?.Name} {d.MProject?.Name}")),
                     ApprovalStatus = status,
                     ClickableStatuses = await GetClickableStatusesAsync(treport),
                     CanEdit = !isReadOnlyAll && ApprovalStatusService.CanEdit(
@@ -348,7 +350,10 @@
                     PropertyUtil.CopyProperties(d, detailModel);
                     detailModel.IndexNo =
                         StringUtil.ConvertDigitsToFullWidth(index);
-                    detailModel.ProjectName = d.MProject?.Name ?? "その他";
+                    detailModel.ProjectName =  d.MProject?.Name == "その他"
+                            ? "その他"
+                            : $"{d.MProject?.MCustomer?.Name} {d.MProject?.Name}"
+                            ?? "その他";
                     return detailModel;
                 })
             .ToList();
