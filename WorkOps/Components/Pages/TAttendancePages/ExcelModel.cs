@@ -29,31 +29,31 @@ public sealed class ExcelModel
     /// 開始時間
     /// </summary>
     [ExcelColumn(Header = "開始時間", Width = 9.0)]
-    public string? StartTimeString { get; set; }
+    public DateTime? StartTime { get; set; }
 
     /// <summary>
     /// 終了時間
     /// </summary>
     [ExcelColumn(Header = "終了時間", Width = 9.0)]
-    public string? EndTimeString { get; set; }
+    public DateTime? EndTime { get; set; }
 
     /// <summary>
     /// 有給時間の時刻表示
     /// </summary>
     [ExcelColumn(Header = "有給時間", Width = 9.0)]
-    public string? PaidLeaveDurationString { get; set; }
+    public TimeSpan? PaidLeaveDuration { get; set; }
 
     /// <summary>
     /// 勤務時間の時刻表示
     /// </summary>
     [ExcelColumn(Header = "勤務時間", Width = 9.0)]
-    public string? WorkedDurationString { get; set; }
+    public TimeSpan? WorkedDuration { get; set; }
 
     /// <summary>
     /// 時間外の時刻表示
     /// </summary>
     [ExcelColumn(Header = "時間外", Width = 9.0)]
-    public string? OvertimeDurationString { get; set; }
+    public TimeSpan? OvertimeDuration { get; set; }
 
     /// <summary>
     /// 備考

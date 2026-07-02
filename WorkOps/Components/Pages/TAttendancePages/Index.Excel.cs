@@ -50,11 +50,11 @@ public partial class Index
                 Day = im.Date.Day,
                 DayOfWeek = im.Date.ToString("ddd"),
                 HolidayName = im.HolidayName ?? string.Empty,
-                StartTimeString = im.StartTime?.ToString("HH:mm"),
-                EndTimeString = im.EndTime?.ToString("HH:mm"),
-                PaidLeaveDurationString = im.PaidLeaveDurationString,
-                WorkedDurationString = im.WorkedDurationString,
-                OvertimeDurationString = im.OvertimeDurationString,
+                StartTime = im.StartTime,
+                EndTime = im.EndTime,
+                PaidLeaveDuration = im.PaidLeaveDuration,
+                WorkedDuration = im.WorkedDuration,
+                OvertimeDuration = im.OvertimeDuration,
                 Remarks = im.Remarks,
                 WorkDetailAm = im.WorkDetailAm,
                 WorkDetailPm = im.WorkDetailPm,
@@ -107,6 +107,10 @@ public partial class Index
         // 常に31行分確保
         var lastRow = startRow + fixedDays - 1;
         var lastCol = startCol + typeof(ExcelModel).GetProperties().Length - 1;
+
+        // 時刻フォーマット
+        sheet.Range(startRow, startCol + 3, lastRow, startCol + 7)
+            .Style.DateFormat.Format = "h:mm";
 
         // 合計
         sheet.Range(lastRow + 1, 1, lastRow + 1, 3).Merge();
