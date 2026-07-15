@@ -189,12 +189,16 @@ public partial class Index
                         dbContext.TPlan.Any(plan =>
                             (string.IsNullOrEmpty(userId) || plan.UserId == userId) &&
                             plan.MPhaseId == p.Id &&
-                            DateOnly.FromDateTime(plan.EndDate) >= twoMonthsAgo)
+                            DateOnly.FromDateTime(plan.EndDate) >=
+                                (p.MProject.Name == "その他"
+                                    ? dateFrom : twoMonthsAgo))
                         ||
                         dbContext.TActual.Any(actual =>
                             (string.IsNullOrEmpty(userId) || actual.UserId == userId) &&
                             actual.MPhaseId == p.Id &&
-                            DateOnly.FromDateTime(actual.EndDate) >= twoMonthsAgo)
+                            DateOnly.FromDateTime(actual.EndDate) >=
+                                (p.MProject.Name == "その他"
+                                    ? dateFrom : twoMonthsAgo))
                     )
                 )
                 .Include(p => p.MProject)
