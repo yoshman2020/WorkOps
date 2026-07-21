@@ -55,7 +55,7 @@ namespace WorkOps.Services
         /// <summary>
         /// ユーザー名取得
         /// </summary>
-        /// <param name="userId"></param>
+        /// <param name="userId">ログインユーザーのID</param>
         /// <returns>ユーザー名</returns>
         public string GetUserName(string userId)
         {
@@ -63,6 +63,21 @@ namespace WorkOps.Services
                 .Where(u => u.Id == userId)
                 .Select(u => u.FullName)
                 .FirstOrDefault() ?? string.Empty;
+        }
+
+        /// <summary>
+        /// ユーザーの姓を取得
+        /// </summary>
+        /// <param name="userId">ログインユーザーのID</param>
+        /// <returns>ユーザーの姓</returns>
+        public string GetUserLastName(string userId)
+        {
+            var userName = GetUserName(userId);
+            if (string.IsNullOrEmpty(userName))
+            {
+                return string.Empty;
+            }
+            return userName.Split([' ', '　'])[0];
         }
 
         /// <summary>

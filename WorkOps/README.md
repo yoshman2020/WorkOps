@@ -88,6 +88,7 @@ dotnet user-secrets set "Smtp:Password" "your-password"
 
 # メールパスワード（IIS）
 web.config
+```xml
 <aspNetCore>
   <environmentVariables>
     <environmentVariable name="Smtp__Host" value="smtp.example.com" />
@@ -96,3 +97,4 @@ web.config
     <environmentVariable name="Smtp__Password" value="prod-password" />
   </environmentVariables>
 </aspNetCore>
+```

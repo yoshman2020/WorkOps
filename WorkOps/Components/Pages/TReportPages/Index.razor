@@ -199,12 +199,12 @@
 
         try
         {
-            var userName = UserService.GetUserName(UserId);
+            var userLastName = UserService.GetUserLastName(UserId);
 
-            using var wordMs = await CreateWordMemoryStreamAsync(userName);
+            using var wordMs = await CreateWordMemoryStreamAsync(userLastName);
             using var streamRef = new DotNetStreamReference(stream: wordMs);
 
-            var fileName = $"週間報告書{Month:yyyy-MM}({userName}).docx";
+            var fileName = $"週間報告書{Month:yyyy-MM}({userLastName}).docx";
             await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
         }
         catch (Exception ex)

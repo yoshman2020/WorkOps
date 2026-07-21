@@ -93,9 +93,11 @@ public partial class Index
         }
 
         var userName = InputModels?.FirstOrDefault()?.UserName ?? string.Empty;
+        var userLastName = !string.IsNullOrEmpty(userName)
+            ? userName.Split([' ', '　'])[0] : string.Empty;
 
         // Word生成
-        using var wordMs = await CreateWordMemoryStreamAsync(userName);
+        using var wordMs = await CreateWordMemoryStreamAsync(userLastName);
         if (wordMs == null)
         {
             // Word生成に失敗した場合はメール送信しない
@@ -125,12 +127,12 @@ public partial class Index
             return;
         }
         await MailService.SendWithAttachmentAsync(sendUsers!,
-            $"週間報告書（{userName} {Month:yyyy/MM/dd}）", "週間報告書送付",
+            $"週間報告書（{userLastName} {Month:yyyy/MM/dd}）", "週間報告書送付",
             [
                 (wordMs.ToArray(),
-                    $"週間報告書{Month:yyyy-MM}({userName}).docx"),
+                    $"週間報告書{Month:yyyy-MM}({userLastName}).docx"),
                 (excelMs.ToArray(),
-                    $"{userName}スケジュール.xlsx")
+                    $"{userLastName}スケジュール.xlsx")
             ]);
     }
 }
