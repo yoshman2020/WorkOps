@@ -202,9 +202,13 @@ public partial class Index
             sheet.Row(row).Height = rowHeight;
 
             sheet.Cell(row, 2).Value = inputModel.PhaseName;
-            sheet.Cell(row, 3).Value = $"{inputModel.ManHour:#}";
-            sheet.Cell(row, 4).Value = inputModel.ProgressRateString;
-            sheet.Cell(row, 5).Value = $"{inputModel.EndDate:MM/dd}";
+            if (inputModel.IsActual)
+            {
+                // 実績行の場合、工数行がマージされているため行-1
+                sheet.Cell(row - 1, 3).Value = $"{inputModel.ManHour:#}";
+                sheet.Cell(row - 1, 4).Value = inputModel.ProgressRateString;
+                sheet.Cell(row - 1, 5).Value = $"{inputModel.EndDate:MM/dd}";
+            }
 
             // 日付ごとの予定・実績
             for (int d = 0; d < dates.Count(); d++)
