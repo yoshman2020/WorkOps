@@ -64,7 +64,7 @@ public partial class Index
         // 行高さ = センチメートル * 37.7007874015748
 
         var sheet = workbook.Worksheets.Add($"{month}月");
-        sheet.SheetView.ZoomScale = 130;
+        sheet.SheetView.ZoomScale = 100;
 
         // フォント設定
         sheet.Style.Font.FontName = "ＭＳ Ｐゴシック";
@@ -85,7 +85,8 @@ public partial class Index
         // 最終列
         var lastColumn = dates.Count() + StartColumn - 1;
         // 最終行
-        var lastRow = inputModels.Count + StartRow - 1;
+        var lastRow = 0 < inputModels.Count
+            ? inputModels.Count + StartRow - 1 : StartRow;
 
         sheet.Cell(1, 1).Value = $"{month}月 業務スケジュール";
         sheet.Cell(1, 1).Style.Font.Bold = true;
@@ -114,6 +115,8 @@ public partial class Index
             .Style.Border.InsideBorder = XLBorderStyleValues.Thin;
         sheet.Range(StartRow, StartColumn, lastRow, lastColumn)
             .Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        sheet.Range(StartRow, StartColumn, lastRow, lastColumn)
+            .Style.Font.FontSize = 22;
 
         for (int col = StartColumn; col < dates.Count() + StartColumn; col++)
         {
@@ -145,6 +148,11 @@ public partial class Index
         sheet.Row(1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
         sheet.Column(2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
         sheet.Cell(1, 1).Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
+
+        // 作業工数
+        sheet.Range(StartRow, 3, lastRow, 3).Style.NumberFormat.Format = "0.0";
+        // 終了
+        sheet.Range(StartRow, 5, lastRow, 5).Style.DateFormat.Format = "MM/dd";
 
         // プロジェクト番号
         var projectNo = 1;
@@ -205,9 +213,9 @@ public partial class Index
             if (inputModel.IsActual)
             {
                 // 実績行の場合、工数行がマージされているため行-1
-                sheet.Cell(row - 1, 3).Value = $"{inputModel.ManHour:#}";
+                sheet.Cell(row - 1, 3).Value = inputModel.PhaseTotalManHour;
                 sheet.Cell(row - 1, 4).Value = inputModel.ProgressRateString;
-                sheet.Cell(row - 1, 5).Value = $"{inputModel.EndDate:MM/dd}";
+                sheet.Cell(row - 1, 5).Value = inputModel.EndDate;
             }
 
             // 日付ごとの予定・実績

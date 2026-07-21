@@ -189,6 +189,7 @@ public partial class Index
                         dbContext.TPlan.Any(plan =>
                             (string.IsNullOrEmpty(userId) || plan.UserId == userId) &&
                             plan.MPhaseId == p.Id &&
+                            DateOnly.FromDateTime(plan.StartDate) <= dateTo &&
                             DateOnly.FromDateTime(plan.EndDate) >=
                                 (p.MProject.Name == "その他"
                                     ? dateFrom : twoMonthsAgo))
@@ -196,6 +197,7 @@ public partial class Index
                         dbContext.TActual.Any(actual =>
                             (string.IsNullOrEmpty(userId) || actual.UserId == userId) &&
                             actual.MPhaseId == p.Id &&
+                            DateOnly.FromDateTime(actual.StartDate) <= dateTo &&
                             DateOnly.FromDateTime(actual.EndDate) >=
                                 (p.MProject.Name == "その他"
                                     ? dateFrom : twoMonthsAgo))
@@ -245,7 +247,8 @@ public partial class Index
                 plans,
                 x => x.StartDate,
                 x => x.EndDate,
-                x => x.MPhaseId);
+                x => x.MPhaseId,
+                x => x.ManHour);
 
             RenderCells(
                 groupedPlans,
@@ -271,7 +274,8 @@ public partial class Index
                 actuals,
                 x => x.StartDate,
                 x => x.EndDate,
-                x => x.MPhaseId);
+                x => x.MPhaseId,
+                x => x.ManHour);
 
             RenderCells(
                 groupedActuals,
@@ -296,6 +300,10 @@ public partial class Index
             // 工程別累計作業工数
             var phaseTotalManHours = dbContext.TActual
                 .Where(e => string.IsNullOrEmpty(userId) || e.UserId == userId)
+                .Where(e => (e.StartDate <= toDateTime))
+                // 進捗会議は当月のみ
+                .Where(e => e.MPhase.Name != "進捗会議" 
+                    || (e.StartDate >= fromDateTime && e.StartDate <= toDateTime))
                 .GroupBy(
                     a => a.MPhaseId,
                     a => a.ManHour
@@ -389,13 +397,16 @@ public partial class Index
     /// <param name="startSelector">開始日取得関数</param>
     /// <param name="endSelector">終了日取得関数</param>
     /// <param name="phaseSelector">工程ID取得関数</param>
+    /// <param name="manHourSelector">作業工数取得関数</param>
     /// <returns>グループ化されたデータ</returns>
-    private static List<(DateTime start, DateTime end, List<T> items)>
+    private static List<(DateTime start, DateTime end, double manHours,
+        List<T> items)>
     GroupContinuous<T>(
         List<T> source,
         Func<T, DateTime> startSelector,
         Func<T, DateTime> endSelector,
-        Func<T, int> phaseSelector)
+        Func<T, int> phaseSelector,
+        Func<T, double> manHourSelector)
     {
         return [.. source
             .OrderBy(startSelector)
@@ -403,10 +414,11 @@ public partial class Index
             .SelectMany(g =>
             {
                 var list = g.OrderBy(startSelector).ToList();
-                var result = new List<(DateTime, DateTime, List<T>)>();
+                var result = new List<(DateTime, DateTime, double, List<T>)>();
 
                 DateTime currentStart = startSelector(list[0]).Date;
                 DateTime currentEnd = endSelector(list[0]).Date;
+                double currentManHours = manHourSelector(list[0]);
                 var currentItems = new List<T> { list[0] };
 
                 for (int i = 1; i < list.Count; i++)
@@ -414,22 +426,30 @@ public partial class Index
                     var item = list[i];
                     var start = startSelector(item).Date;
                     var end = endSelector(item).Date;
+                    var manHour = manHourSelector(item);
 
                     if (start <= currentEnd.AddDays(1))
                     {
-                        if (end > currentEnd) currentEnd = end;
+                        if (end > currentEnd)
+                        {
+                            currentEnd = end;
+                        };
+                        currentManHours += manHour;
                         currentItems.Add(item);
                     }
                     else
                     {
-                        result.Add((currentStart, currentEnd, currentItems));
+                        result.Add((currentStart, currentEnd, currentManHours,
+                            currentItems));
                         currentStart = start;
                         currentEnd = end;
+                        currentManHours = manHour;
                         currentItems = [item];
                     }
                 }
 
-                result.Add((currentStart, currentEnd, currentItems));
+                result.Add((currentStart, currentEnd, currentManHours,
+                    currentItems));
                 return result;
             })];
     }
@@ -472,7 +492,7 @@ public partial class Index
     /// <param name="isActual">実績フラグ</param>
     /// <param name="extraAction">追加処理</param>
     private static void RenderCells<T>(
-        List<(DateTime start, DateTime end, List<T> items)> grouped,
+        List<(DateTime start, DateTime end, double manHours, List<T> items)> grouped,
         List<T> allItems,
         Func<T, int> phaseSelector,
         Func<T, DateTime> startSelector,
@@ -515,7 +535,7 @@ public partial class Index
                         date, dateList, phaseItems, startSelector, endSelector);
 
                     var tooltip =
-                        $"{tooltipBaseSelector(item)} : {period.start:MM/dd}～{period.end:MM/dd}";
+                        $"{tooltipBaseSelector(item)} : {period.start:MM/dd}～{period.end:MM/dd} ({period.manHours}h)";
 
                     target.Cells[date] = (
                         idSelector(item),
@@ -553,7 +573,7 @@ public partial class Index
 
         try
         {
-            var userName = UserService.GetUserName(UserId);
+            var userLastName = UserService.GetUserLastName(UserId);
 
             using var workbook = new XLWorkbook();
 
@@ -563,7 +583,7 @@ public partial class Index
                 workbook);
             using var streamRef = new DotNetStreamReference(stream: excelMs);
 
-            var fileName = $"{userName}スケジュール.xlsx";
+            var fileName = $"{userLastName}スケジュール.xlsx";
             await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
         }
         catch (Exception ex)
