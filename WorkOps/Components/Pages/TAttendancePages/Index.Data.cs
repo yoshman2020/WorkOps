@@ -377,6 +377,15 @@ public partial class Index
         {
             messages.Add("前日の実績がありません。");
         }
+        else
+        {
+            var isPreviousBusinessDayActualMatching = await PrevInputCheckService
+                .IsPreviousBusinessDayActualMatchingAsync(UserId);
+            if (!isPreviousBusinessDayActualMatching)
+            {
+                messages.Add("前日の勤務時間と実績入力の時間が一致しません。");
+            }
+        }
 
         var isExistLastWeekReport = await PrevInputCheckService
             .ExistsLastWeekReportAsync(UserId);

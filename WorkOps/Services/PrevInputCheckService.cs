@@ -34,6 +34,37 @@ public class PrevInputCheckService(
     }
 
     /// <summary>
+    /// 前営業日の勤務時間と実績入力の時間が一致するか
+    /// </summary>
+    /// <param name="userId">ユーザーID</param>
+    /// <returns>前営業日の勤務時間と実績入力の時間が一致する場合true</returns>
+    public async Task<bool> IsPreviousBusinessDayActualMatchingAsync(string userId)
+    {
+        // 前営業日
+        var prev = await businessDayService
+            .GetPreviousBusinessDay(DateTime.Today);
+
+        var start = prev.Date;
+        var end = start.AddDays(1);
+
+        // 前営業日の勤務時間
+        var workDuration = await db.TAttendance
+            .Where(x => x.UserId == userId &&
+                           x.Date == DateOnly.FromDateTime(start))
+            .Select(x => x.WorkedDuration)
+            .FirstOrDefaultAsync();
+
+        // 前営業日の実績時間
+        var actualManHour = await db.TActual
+            .Where(x => x.UserId == userId &&
+                           x.StartDate < end &&
+                           x.EndDate >= start)
+            .SumAsync(x => x.ManHour);
+
+        return actualManHour == workDuration?.TotalHours;
+    }
+
+    /// <summary>
     /// 月曜日に、先週に週報入力があるか
     /// </summary>
     /// <param name="userId">ユーザーID</param>
