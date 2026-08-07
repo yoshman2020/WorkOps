@@ -222,7 +222,8 @@ public partial class Index
             return;
         }
 
-        var userName = InputModels?.FirstOrDefault()?.UserName ?? string.Empty;
+        var userName = InputModels?.FirstOrDefault()?.UserName?
+            .Replace("　", "")?.Replace(" ", "") ?? string.Empty;
         using var workbook = new XLWorkbook();
 
         // Excel生成

@@ -206,7 +206,8 @@ public partial class Index
 
         try
         {
-            var userName = InputModels.FirstOrDefault()?.UserName;
+            var userName = InputModels.FirstOrDefault()?.UserName?
+                .Replace("　", "")?.Replace(" ", "") ?? string.Empty;
 
             using var workbook = new XLWorkbook();
 
