@@ -310,7 +310,7 @@ public partial class Index
                 )
                 .ToDictionary(g => g.Key, g => g.Sum());
 
-            // 作業工数
+            // 工程別期間内作業工数
             foreach (var model in inputModels)
             {
                 double totalManHour = 0;
@@ -330,6 +330,36 @@ public partial class Index
                 }
             }
 
+            // プロジェクト別累計作業工数
+            var projectTotalManHours = dbContext.TActual
+                .Where(e => string.IsNullOrEmpty(userId) || e.UserId == userId)
+                .Where(e => e.StartDate <= toDateTime)
+                // 進捗会議は当月のみ
+                .Where(e => e.MPhase.Name != "進捗会議"
+                    || (e.StartDate >= fromDateTime && e.StartDate <= toDateTime))
+                .GroupBy(x => x.MPhase.MProjectId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Sum(x => x.ManHour)
+                );
+
+            // プロジェクト別期間内作業工数
+            var projectManHours = actuals
+                .Join(
+                    phases,
+                    actual => actual.MPhaseId,
+                    phase => phase.Id,
+                    (actual, phase) => new
+                    {
+                        phase.MProjectId,
+                        actual.ManHour
+                    })
+                .GroupBy(x => x.MProjectId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Sum(x => x.ManHour)
+                );
+
             // プロジェクトごとに２行ずつ追加
             var enhancedInputModels = new List<InputModel>();
             int? currentProjectId = inputModels[0].MProjectId;
@@ -343,6 +373,11 @@ public partial class Index
             InputModel separatorModel2 = (separatorModel.Clone() as InputModel)!;
             separatorModel2.PhaseName = GetProjectName(separatorModel);
             separatorModel2.RowClass = "project2";
+            // プロジェクト別累計作業工数
+            separatorModel2.PhaseTotalManHour = projectTotalManHours?
+                .GetValueOrDefault(separatorModel2.MProjectId ?? 0) ?? 0;
+            separatorModel2.ManHour = projectManHours?
+                .GetValueOrDefault(separatorModel2.MProjectId ?? 0) ?? 0;
             enhancedInputModels.Add(separatorModel2);
             foreach (var model in inputModels)
             {
@@ -358,6 +393,11 @@ public partial class Index
                     separatorModel2 = (separatorModel.Clone() as InputModel)!;
                     separatorModel2.PhaseName = GetProjectName(separatorModel);
                     separatorModel2.RowClass = "project2";
+                    // プロジェクト別累計作業工数
+                    separatorModel2.PhaseTotalManHour = projectTotalManHours?
+                        .GetValueOrDefault(separatorModel2.MProjectId ?? 0) ?? 0;
+                    separatorModel2.ManHour =　projectManHours?
+                        .GetValueOrDefault(separatorModel2.MProjectId ?? 0) ?? 0;
                     enhancedInputModels.Add(separatorModel2);
                 }
                 model.RowClass = model.IsActual ? "actual" : "plan";

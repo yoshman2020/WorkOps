@@ -1,4 +1,9 @@
-﻿::deep .quickgrid {
+﻿/* 中央揃え */
+::deep .col-align-center {
+    text-align: center !important;
+}
+
+::deep .quickgrid {
     width: auto;
 }
 
@@ -41,6 +46,10 @@
 
 ::deep .project2 {
     border-top: 2px solid black;
+}
+
+::deep .project2 td {
+    font-weight: bolder;
 }
 
 ::deep .plan {
