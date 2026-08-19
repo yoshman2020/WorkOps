@@ -119,7 +119,9 @@ public partial class Index
 
         // メール送信
         var users = await UserService.GetUsersAsync();
-        var sendUsers = users.Where(u => u.IsSendReportEmail == true)
+        // 週間報告書提出時にメール送信するユーザー、または自分自身に送信する
+        var sendUsers = users.Where(u => u.IsSendReportEmail == true
+                || u.Id == InputModels?.FirstOrDefault()?.UserId)
             .Select(u => u.Email);
         if (sendUsers is null || !sendUsers.Any())
         {
