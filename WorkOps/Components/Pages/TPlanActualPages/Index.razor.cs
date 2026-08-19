@@ -334,9 +334,8 @@ public partial class Index
             var projectTotalManHours = dbContext.TActual
                 .Where(e => string.IsNullOrEmpty(userId) || e.UserId == userId)
                 .Where(e => e.StartDate <= toDateTime)
-                // 進捗会議は当月のみ
-                .Where(e => e.MPhase.Name != "進捗会議"
-                    || (e.StartDate >= fromDateTime && e.StartDate <= toDateTime))
+                // その他を除く
+                .Where(e => e.MPhase.MProject.Name != "その他")
                 .GroupBy(x => x.MPhase.MProjectId)
                 .ToDictionary(
                     g => g.Key,
