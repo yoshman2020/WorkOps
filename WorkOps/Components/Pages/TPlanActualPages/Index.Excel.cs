@@ -12,17 +12,24 @@ public partial class Index
     /// <summary>
     /// ExcelのMemoryStreamを生成
     /// </summary>
+    /// <param name="userService">ユーザーサービス</param>
+    /// <param name="dbContext">DBコンテキスト</param>
+    /// <param name="userId">ユーザーID</param>
+    /// <param name="year">年</param>
+    /// <param name="selectedMonth">選択された月</param>
+    /// <param name="projectFilter">プロジェクトフィルター</param>
+    /// <param name="isOnlyFromTo">期間中の工程のみ表示するか</param>
     /// <param name="workbook">Excelのワークブック</param>
     /// <returns>生成されたMemoryStream</returns>
     public static MemoryStream CreateExcelMemoryStream(
         UserService userService, ApplicationDbContext dbContext, string userId,
-        int year, int selectedMonth, string projectFilter,
+        int year, int selectedMonth, string projectFilter, bool isOnlyFromTo,
         XLWorkbook workbook)
     {
         for (int month = 1; month <= 12; month++)
         {
             GenerateExcel(userService, dbContext, userId,
-                workbook, year, month, projectFilter);
+                workbook, year, month, projectFilter, isOnlyFromTo);
         }
 
         workbook.Worksheet($"{selectedMonth}月").SetTabActive();
@@ -35,20 +42,26 @@ public partial class Index
     /// <summary>
     /// Excelの１シートを生成
     /// </summary>
+    /// <param name="userServicer">ユーザーサービス</param>
+    /// <param name="dbContext">DBコンテキスト</param>
+    /// <param name="userId">ユーザーID</param>
     /// <param name="workbook">WorkBook</param>
+    /// <param name="year">年</param>
     /// <param name="month">月（1～12）</param>
+    /// <param name="projectFilter">プロジェクトフィルター</param>
+    /// <param name="isOnlyFromTo">期間中の工程のみ表示するか</param>
     /// <retruns>結果 true:OK false:NG</retruns>
     public static void GenerateExcel(
         UserService userServicer, ApplicationDbContext dbContext, string userId,
         XLWorkbook workbook, int year, int month,
-        string projectFilter)
+        string projectFilter, bool isOnlyFromTo)
     {
         var (inputModels, dates) = LoadData(
             userServicer, dbContext, userId,
             new DateOnly(year, month, 1),
             new DateOnly(year, month,
                 DateTime.DaysInMonth(year, month)),
-            projectFilter);
+            projectFilter, isOnlyFromTo);
 
         if (inputModels == null
             || dates == null || !dates!.Any())
@@ -175,6 +188,8 @@ public partial class Index
                     .Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
                 sheet.Range(row, 1, row, lastColumn)
                     .Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+                // 工数太字
+                sheet.Cell(row, 3).Style.Font.Bold = true;
             }
             else
             {
@@ -210,12 +225,15 @@ public partial class Index
             sheet.Row(row).Height = rowHeight;
 
             sheet.Cell(row, 2).Value = inputModel.PhaseName;
-            if (inputModel.IsActual)
+            if (inputModel.IsActual
+                || (inputModel.RowClass == "project2"
+                    && inputModel.PhaseName != "その他"))
             {
                 // 実績行の場合、工数行がマージされているため行-1
-                sheet.Cell(row - 1, 3).Value = inputModel.PhaseTotalManHour;
-                sheet.Cell(row - 1, 4).Value = inputModel.ProgressRateString;
-                sheet.Cell(row - 1, 5).Value = inputModel.EndDate;
+                var manHourRow = inputModel.IsActual ? row - 1 : row;
+                sheet.Cell(manHourRow, 3).Value = inputModel.PhaseTotalManHour;
+                sheet.Cell(manHourRow, 4).Value = inputModel.ProgressRateString;
+                sheet.Cell(manHourRow, 5).Value = inputModel.EndDate;
             }
 
             // 日付ごとの予定・実績

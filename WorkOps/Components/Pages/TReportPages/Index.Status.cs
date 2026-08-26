@@ -109,7 +109,7 @@ public partial class Index
 
         using var excelMs = TPlanActualPages.Index.CreateExcelMemoryStream(
             UserService, DbContext, UserId,
-            Month.Year, Month.Month, string.Empty,
+            Month.Year, Month.Month, string.Empty, false,
             workbook);
         if (excelMs == null)
         {

@@ -10,8 +10,10 @@ namespace WorkOps.Components.Pages.TPlanActualPages;
 
 public partial class Index
 {
+    [SupplyParameterFromQuery(Name = "UserId")]
+    private string? QueryUserId { get; set; }
+
     private string _userId = string.Empty;
-    [SupplyParameterFromQuery]
     private string UserId
     {
         get => _userId;
@@ -64,6 +66,20 @@ public partial class Index
         }
     }
 
+    private bool _isOnlyFromTo = false;
+    private bool IsOnlyFromTo
+    {
+        get => _isOnlyFromTo;
+        set
+        {
+            if (_isOnlyFromTo != value)
+            {
+                _isOnlyFromTo = value;
+                LoadSelectedData();
+            }
+        }
+    }
+
     private List<InputModel>? InputModels;
     private readonly PaginationState pagination = new() { ItemsPerPage = 30 };
     private List<ApplicationUser> Users = [];
@@ -92,7 +108,8 @@ public partial class Index
         try
         {
             Users = await UserService.GetUsersAsync();
-            UserId = await UserService.GetUserIdAsync(Users, UserId);
+            UserId = await UserService.GetUserIdAsync(
+                Users, QueryUserId ?? string.Empty);
 
             DateService.SetThisMonth(ref _dateFrom, ref _dateTo);
             LoadSelectedData();
@@ -115,7 +132,7 @@ public partial class Index
         {
             (InputModels, Dates) = LoadData(
                 UserService, DbContext, UserId,
-                DateFrom, DateTo, ProjectFilter);
+                DateFrom, DateTo, ProjectFilter, IsOnlyFromTo);
         }
         catch (Exception ex)
         {
@@ -130,10 +147,12 @@ public partial class Index
     /// <param name="dtFrom">開始日</param>
     /// <param name="dtTo">終了日</param>
     /// <param name="projectFilter">プロジェクト名フィルター</param>
+    /// <param name="isOnlyFromTo">期間中の工程のみ表示フラグ</param>
     /// <returns></returns>
     private static (List<InputModel>?, IEnumerable<DateTime>?) LoadData(
         UserService userService, ApplicationDbContext dbContext, string userId,
-        DateOnly? dtFrom, DateOnly? dtTo, string projectFilter)
+        DateOnly? dtFrom, DateOnly? dtTo, string projectFilter,
+        bool isOnlyFromTo)
     {
         List<InputModel> inputModels = [];
         IEnumerable<DateTime> dates = [];
@@ -177,8 +196,8 @@ public partial class Index
                 .Select(p => p.MProjectId)
                 .Distinct();
 
-            // 2カ月以上前のデータは除外
-            var twoMonthsAgo = dateFrom.AddMonths(-1);
+            // 期間中の工程のみ表示
+            var endDate = isOnlyFromTo ? dateFrom : DateOnly.MinValue;
 
             // プロジェクトに紐づく工程
             var phases = dbContext.MPhase
@@ -192,7 +211,7 @@ public partial class Index
                             DateOnly.FromDateTime(plan.StartDate) <= dateTo &&
                             DateOnly.FromDateTime(plan.EndDate) >=
                                 (p.MProject.Name == "その他"
-                                    ? dateFrom : twoMonthsAgo))
+                                    ? dateFrom : endDate))
                         ||
                         dbContext.TActual.Any(actual =>
                             (string.IsNullOrEmpty(userId) || actual.UserId == userId) &&
@@ -200,7 +219,7 @@ public partial class Index
                             DateOnly.FromDateTime(actual.StartDate) <= dateTo &&
                             DateOnly.FromDateTime(actual.EndDate) >=
                                 (p.MProject.Name == "その他"
-                                    ? dateFrom : twoMonthsAgo))
+                                    ? dateFrom : endDate))
                     )
                 )
                 .Include(p => p.MProject)
@@ -618,7 +637,7 @@ public partial class Index
 
             using var excelMs = CreateExcelMemoryStream(
                 UserService, DbContext, UserId,
-                DateFrom.Year, DateFrom.Month, ProjectFilter,
+                DateFrom.Year, DateFrom.Month, ProjectFilter, IsOnlyFromTo,
                 workbook);
             using var streamRef = new DotNetStreamReference(stream: excelMs);
 

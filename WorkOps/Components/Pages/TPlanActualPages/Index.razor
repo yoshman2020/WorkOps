@@ -46,6 +46,10 @@
         <div class="col-auto">
             <InputTextOnInput @bind-Value="ProjectFilter" Placeholder="プロジェクトで絞り込み" />
         </div>
+        <div class="col-auto">
+            <InputCheckbox @bind-Value="IsOnlyFromTo" id="IsOnlyFromTo" />
+            <label for="IsOnlyFromTo" class="form-label">期間中の工程のみ表示</label>
+        </div>
     </div>
 </form>
 
