@@ -21,6 +21,12 @@ public sealed class InputModel : BaseInputModel
     public string UserName { get; set; } = string.Empty;
 
     /// <summary>
+    /// 顧客名
+    /// </summary>
+    [Display(Name = "顧客")]
+    public string CustomerName { get; set; } = string.Empty;
+
+    /// <summary>
     /// プロジェクト名
     /// </summary>
     [Display(Name = "プロジェクト")]

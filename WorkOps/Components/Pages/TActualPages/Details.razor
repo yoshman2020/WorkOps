@@ -32,8 +32,8 @@
             <dd class="col-sm-10">@Date.ToString("yyyy/MM/dd")</dd>
             @foreach (var tactual in @tactuals)
             {
-                <dt class="col-sm-2 text-nowrap">プロジェクト名 工程名</dt>
-                <dd class="col-sm-10">@tactual.ProjectName&nbsp;&nbsp;@tactual.PhaseName</dd>
+                <dt class="col-sm-2 text-nowrap">工程名</dt>
+                <dd class="col-sm-10">@tactual.CustomerName&nbsp;&nbsp;@tactual.ProjectName&nbsp;&nbsp;@tactual.PhaseName</dd>
                 <dt class="col-sm-2 text-nowrap">作業内容</dt>
                 <dd class="col-sm-10"><pre>@tactual.Description</pre></dd>
                 <dt class="col-sm-2 text-nowrap">作業時刻</dt>
@@ -106,7 +106,9 @@
                     .Reference(e => e.MPhase)
                     .Query()
                     .Include(p => p.MProject)
+                    .ThenInclude(p => p.MCustomer)
                     .LoadAsync();
+                tactual.CustomerName = entity!.MPhase.MProject.MCustomer.Name;
                 tactual.ProjectName = entity!.MPhase.MProject.Name;
                 tactual.PhaseName = entity!.MPhase.Name;
             }
@@ -215,7 +217,7 @@
 担当者：{UserName}
 日付：{Date:yyyy/MM/dd}
 {string.Join(Environment.NewLine, tactuals.Select(t => $"""
-プロジェクト名 工程名：{t.ProjectName}  {t.PhaseName}
+工程名：{t.CustomerName} {t.ProjectName}  {t.PhaseName}
 作業内容：{t.Description}
 作業時刻：{t.StartDate:HH:mm} ～ {t.EndDate:HH:mm}
 作業工数：{t.ManHour} H
