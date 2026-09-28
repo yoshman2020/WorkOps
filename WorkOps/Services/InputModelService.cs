@@ -85,6 +85,42 @@ public class InputModelService(ApplicationDbContext context,
     }
 
     /// <summary>
+    /// IDからDBを検索し入力モデルを取得する
+    /// </summary>
+    /// <typeparam name="TInputModel">入力モデル</typeparam>
+    /// <param name="ids">IDリスト</param>
+    /// <returns>入力モデル</returns>
+    public async Task<(List<TInputModel>?, List<TEntity>?)>
+        GetInputModelAsync<TInputModel, TEntity>(List<int> ids)
+        where TInputModel : BaseInputModel, new()
+        where TEntity : BaseEntity
+    {
+        var entities = await _context.Set<TEntity>()
+            .Include(m => m.CreatedUser)
+            .Include(m => m.UpdatedUser)
+            .Where(m => ids.Contains(m.Id))
+            .ToListAsync();
+        if (entities == null || !entities.Any())
+        {
+            return (null, null);
+        }
+        var inputModels = entities.Select(entity => new TInputModel
+        {
+            CreatedUserName = entity.CreatedUser?.FullName
+                ?? entity.CreatedBy ?? string.Empty,
+            UpdatedUserName = entity.UpdatedUser?.FullName
+                ?? entity.UpdatedBy ?? string.Empty
+        }).ToList();
+        foreach (var (entity, inputModel) in entities.Zip(inputModels, (e, m) => (e, m)))
+        {
+            PropertyUtil.CopyProperties(entity, inputModel);
+        }
+        logger!.LogDebug("GetInputModelAsync: Ids={Ids}, TEntity={TEntity}",
+            string.Join(",", ids), typeof(TEntity).Name);
+        return (inputModels.ToList(), entities);
+    }
+
+    /// <summary>
     /// 入力モデルをエンティティに設定する
     /// </summary>
     /// <typeparam name="TInputModel"></typeparam>

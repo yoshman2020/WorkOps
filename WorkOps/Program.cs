@@ -75,6 +75,7 @@ builder.Services.AddScoped<PrevInputCheckService>();
 builder.Services.Configure<AppSettings>(
     builder.Configuration.GetSection("AppSettings"));
 builder.Services.AddScoped<MailService>();
+builder.Services.AddSingleton<ModalService>();
 
 builder.Services.AddServerSideBlazor()
     .AddCircuitOptions(options => { options.DetailedErrors = true; });

@@ -71,13 +71,18 @@ else
                 </div>
                 <div class="mb-3">
                     <InputCheckbox id="issendattendanceemail" @bind-Value="ApplicationUser.IsSendAttendanceEmail" class="form-check-input" />
-                    <label for="issendattendanceemail" class="form-label">出退勤提出時にメール送信する</label>
+                    <label for="issendattendanceemail" class="form-label">出退勤提出時にメール受信する</label>
                     <ValidationMessage For="() => ApplicationUser.IsSendAttendanceEmail" class="text-danger" />
                 </div>
                 <div class="mb-3">
                     <InputCheckbox id="issendreportemail" @bind-Value="ApplicationUser.IsSendReportEmail" class="form-check-input" />
-                    <label for="issendreportemail" class="form-label">週間報告書提出時にメール送信する</label>
+                    <label for="issendreportemail" class="form-label">週間報告書提出時にメール受信する</label>
                     <ValidationMessage For="() => ApplicationUser.IsSendReportEmail" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <InputCheckbox id="IsSendProgressEmail" @bind-Value="ApplicationUser.IsSendProgressEmail" class="form-check-input" />
+                    <label for="IsSendProgressEmail" class="form-label">進捗報告時にメール受信する</label>
+                    <ValidationMessage For="() => ApplicationUser.IsSendProgressEmail" class="text-danger" />
                 </div>
                 <div class="mb-3">
                     <QuickGrid Class="table" Items="ApplicationUser.PaidLeaves.AsQueryable()" TGridItem="InputPaidLeaveModel">
@@ -161,6 +166,7 @@ else
                 IsPrevReminderEnabled = user!.IsPrevReminderEnabled,
                 IsSendAttendanceEmail = user.IsSendAttendanceEmail,
                 IsSendReportEmail = user.IsSendReportEmail,
+                IsSendProgressEmail = user.IsSendProgressEmail,
                 PaidLeaves = paidLeaves,
             };
             PropertyUtil.CopyProperties(entity, ApplicationUser);
@@ -242,6 +248,7 @@ else
                 || user.IsPrevReminderEnabled != ApplicationUser!.IsPrevReminderEnabled
                 || user.IsSendAttendanceEmail != ApplicationUser!.IsSendAttendanceEmail
                 || user.IsSendReportEmail != ApplicationUser!.IsSendReportEmail
+                || user.IsSendProgressEmail != ApplicationUser!.IsSendProgressEmail
             )
             {
                 user.FullName = ApplicationUser.FullName;
@@ -250,6 +257,7 @@ else
                 user.IsPrevReminderEnabled = ApplicationUser!.IsPrevReminderEnabled;
                 user.IsSendAttendanceEmail = ApplicationUser!.IsSendAttendanceEmail;
                 user.IsSendReportEmail = ApplicationUser!.IsSendReportEmail;
+                user.IsSendProgressEmail = ApplicationUser!.IsSendProgressEmail;
                 DbContext.Update(user);
                 await DbContext.SaveChangesAsync();
             }

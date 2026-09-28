@@ -655,4 +655,60 @@ public partial class Index
     {
         return tplanactual.RowClass;
     }
+
+    /// <summary>
+    /// 日付クリック時の処理（実績の詳細表示）
+    /// </summary>
+    /// <param name="date">日付</param>
+    private void OnHeaderDateClick(DateTime date)
+    {
+        Logger.LogDebug("▽OnHeaderDateClick");
+        try
+        {
+            if (InputModels == null)
+            {
+                Logger.LogDebug("△OnHeaderDateClick : No data to display.");
+                return;
+            }
+            var selectedItems = InputModels
+                .Where(m => m.Cells.ContainsKey(date) && m.Cells[date].Id != 0
+                    && m.IsActual)
+                .Select(m => m.Cells[date].Id)
+                .ToList();
+            if (selectedItems.Count == 0)
+            {
+                Logger.LogDebug("△OnHeaderDateClick : No items found for the selected date.");
+                return;
+            }
+            // 詳細ページに遷移
+            var queryParams = new Dictionary<string, string>
+            {
+                { "UserId", UserId },
+                { "Date", date.ToString("yyyy-MM-dd") },
+                { "Ids", string.Join(",", selectedItems) }
+            };
+            var queryString = string.Join("&", queryParams.Select(kvp =>
+                $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value)}"));
+            var url = $"/tactuals/Details?{queryString}";
+            NavigationManager.NavigateTo(url);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception occurred!");
+        }
+        Logger.LogDebug("△OnHeaderDateClick");
+    }
+
+    /// <summary>
+    /// 指定した日にちにデータがあるかどうかを確認する
+    /// </summary>
+    /// <param name="date">確認する日付</param>
+    /// <returns>データが存在する場合はtrue、それ以外はfalse</returns>
+    private bool HasData(DateTime date)
+    {
+        return InputModels?.Any(m =>
+            m.Cells.ContainsKey(date) &&
+            m.Cells[date].Id != 0 &&
+            m.IsActual) ?? false;
+    }
 }

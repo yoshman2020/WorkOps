@@ -94,7 +94,14 @@
 
             <TemplateColumn Context="tplanactual" Class="@($"overflow-hidden day {className}")">
                 <HeaderTemplate>
-                    <span>@date.ToString(dateFormat)</span>
+                    @if(HasData(date))
+                    {
+                        <span class="link-hover-primary" @onclick="() => OnHeaderDateClick(date)">@date.ToString(dateFormat)</span>
+                    }
+                    else
+                    {
+                        <span>@date.ToString(dateFormat)</span>
+                    }
                 </HeaderTemplate>
                 <ChildContent>
                     @if (tplanactual.Cells[date].Id != 0)

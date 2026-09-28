@@ -1,11 +1,16 @@
 ﻿@page "/tactuals/details"
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using System.Text
 @using WorkOps.Models
+@inject ILogger<Details> Logger
+@inject NavigationManager NavigationManager
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
-@inject NavigationManager NavigationManager
-@inject ILogger<Details> Logger
+@inject WorkOps.Services.MailService MailService
+@inject WorkOps.Services.ModalService ModalService
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>詳細</PageTitle>
 
@@ -14,7 +19,7 @@
 <div>
     <h2>実績</h2>
     <hr />
-    @if (tactual is null)
+    @if (tactuals is null)
     {
         <p><em>Loading...</em></p>
     }
@@ -22,72 +27,203 @@
     {
         <dl class="row">
             <dt class="col-sm-2">担当者</dt>
-            <dd class="col-sm-10">@tactual.UserName</dd>
-            <dt class="col-sm-2">プロジェクト</dt>
-            <dd class="col-sm-10">@tactual.ProjectName</dd>
-            <dt class="col-sm-2">工程</dt>
-            <dd class="col-sm-10">@tactual.PhaseName</dd>
-            <dt class="col-sm-2">開始日時</dt>
-            <dd class="col-sm-10">@tactual.StartDate.ToString("yyyy/MM/dd HH:mm:ss")</dd>
-            <dt class="col-sm-2">終了日時</dt>
-            <dd class="col-sm-10">@tactual.EndDate.ToString("yyyy/MM/dd HH:mm:ss")</dd>
-            <dt class="col-sm-2">作業工数</dt>
-            <dd class="col-sm-10">@tactual.ManHour</dd>
-            <dt class="col-sm-2">作業内容</dt>
-            <dd class="col-sm-10">@tactual.Description</dd>
-            <dt class="col-sm-2">進捗率</dt>
-            <dd class="col-sm-10">@tactual.ProgressRate %</dd>
-            <dt class="col-sm-2">備考</dt>
-            <dd class="col-sm-10">@tactual.Remarks</dd>
-            <dt class="col-sm-2">作成日時</dt>
-            <dd class="col-sm-10">@tactual.CreatedAt</dd>
-            <dt class="col-sm-2">作成者</dt>
-            <dd class="col-sm-10">@tactual.CreatedUserName</dd>
-            <dt class="col-sm-2">更新日時</dt>
-            <dd class="col-sm-10">@tactual.UpdatedAt</dd>
-            <dt class="col-sm-2">更新者</dt>
-            <dd class="col-sm-10">@tactual.UpdatedUserName</dd>
+            <dd class="col-sm-10">@UserName</dd>
+            <dt class="col-sm-2">日付</dt>
+            <dd class="col-sm-10">@Date.ToString("yyyy/MM/dd")</dd>
+            @foreach (var tactual in @tactuals)
+            {
+                <dt class="col-sm-2 text-nowrap">プロジェクト名 工程名</dt>
+                <dd class="col-sm-10">@tactual.ProjectName&nbsp;&nbsp;@tactual.PhaseName</dd>
+                <dt class="col-sm-2 text-nowrap">作業内容</dt>
+                <dd class="col-sm-10"><pre>@tactual.Description</pre></dd>
+                <dt class="col-sm-2 text-nowrap">作業時刻</dt>
+                <dd class="col-sm-10">@tactual.StartDate.ToString("HH:mm") ～ @tactual.EndDate.ToString("HH:mm")</dd>
+                <dt class="col-sm-2 text-nowrap">作業工数</dt>
+                <dd class="col-sm-10">@tactual.ManHour H</dd>
+                <dt class="col-sm-2 text-nowrap">進捗率</dt>
+                <dd class="col-sm-10">@tactual.ProgressRate?.ToString("0.# %;0.# %;")</dd>
+                <dt class="col-sm-2">備考</dt>
+                <dd class="col-sm-10">@tactual.Remarks</dd>
+            }
+            <dt class="col-sm-2">作業工数計</dt>
+            <dd class="col-sm-10">@tactuals?.Sum(t => t.ManHour) H</dd>
         </dl>
         <div>
-            <a href="@($"/tactuals/edit?id={tactual.Id}")">編集</a> |
-            <a href="@($"/tplanactuals")">一覧に戻る</a>
+            <button class="btn btn-primary" @onclick="OpenModal">進捗報告</button>
+            <a href="@($"/tplanactuals?UserId={UserId}")">一覧に戻る</a>
         </div>
     }
 </div>
 
 @code {
-    private InputModel? tactual;
+
+    // private Modal Modal;
+
+    private List<InputModel>? tactuals;
 
     [SupplyParameterFromQuery]
-    private int Id { get; set; }
+    private string UserId { get; set; } = string.Empty;
+
+    [SupplyParameterFromQuery]
+    private DateOnly Date { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string Ids { get; set; } = string.Empty;
+
+    private List<int> IdList = [];
+
+    private string UserName = string.Empty;
+
+    /// <summary>
+    /// 進捗報告送信先のメールアドレスリスト（メールアドレス => チェック状態）
+    /// </summary>
+    private Dictionary<string, bool> ProgressEMailAddresses = [];
 
     protected override async Task OnInitializedAsync()
     {
         Logger.LogDebug("▽OnInitializedAsync");
         try
         {
-            (tactual, var entity) = await InputModelService
-                .GetInputModelAsync<InputModel, TActual>(Id);
 
-            if (tactual is null)
+            IdList = Ids?
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(int.Parse)
+                .ToList() ?? [];
+
+            (tactuals, var entities) = await InputModelService
+                .GetInputModelAsync<InputModel, TActual>(IdList);
+
+            if (tactuals is null || !tactuals.Any())
             {
                 NavigationManager.NavigateTo("notfound");
             }
 
-            tactual!.UserName = UserService.GetUserName(tactual.UserId);
-            await DbContext.Entry(entity!.MPhase)
-                .Reference(e => e.MProject)
-                .LoadAsync();
-            await DbContext.Entry(entity!)
-                .Reference(e => e.User)
-                .LoadAsync();
-            tactual!.ProjectName = entity!.MPhase.MProject.Name;
-            tactual!.PhaseName = entity!.MPhase.Name;
+            UserName = UserService.GetUserName(UserId);
+
+            foreach ((var tactual, var entity) in (tactuals ?? []).Zip(entities ?? []))
+            {
+                await DbContext.Entry(entity!)
+                    .Reference(e => e.MPhase)
+                    .Query()
+                    .Include(p => p.MProject)
+                    .LoadAsync();
+                tactual.ProjectName = entity!.MPhase.MProject.Name;
+                tactual.PhaseName = entity!.MPhase.Name;
+            }
+
+            tactuals = tactuals?.OrderBy(t => t.StartDate).ToList();
+
+            // 進捗報告送信先のメールアドレスリストを取得
+            ProgressEMailAddresses = DbContext.Users
+                .Where(u => u.IsSendProgressEmail)
+                .Select(u => u.Email ?? string.Empty)
+                .ToDictionary(email => email, email => false);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Exception occurred!");
         }
         Logger.LogDebug("△OnInitializedAsync");
+    }
+
+    /// <summary>
+    /// モーダルを開く
+    /// </summary>
+    /// <returns></returns>
+    private async Task OpenModal()
+    {
+        if (ProgressEMailAddresses.Count == 0)
+        {
+            await ModalService.ShowAsync(
+                "進捗報告送信先のメールアドレスが設定されていません。",
+                "送信先選択");
+            return;
+        }
+
+        var result = await ModalService.SelectAsync(
+            "進捗報告を送信するメールアドレスを選択してください。",
+            "送信先選択",
+            ProgressEMailAddresses.Keys.ToList());
+
+        if (result.Canceled || result.SelectedOptions.Count == 0)
+        {
+            // ユーザーがキャンセルした場合や、選択がない場合は何もしない
+            return;
+        }
+
+        await SendProgressEMail(result.SelectedOptions);
+    }
+
+    /// <summary>
+    /// 進捗報告メールを送信する
+    /// </summary>
+    /// <returns></returns>
+    private async Task SendProgressEMail(IReadOnlyList<string> sendToAddresses)
+    {
+        try
+        {
+            // 選択されたメールアドレス
+            if (!sendToAddresses.Any())
+            {
+                await ModalService.ShowAsync(
+                    "進捗報告メールの送信先を選択してください。",
+                    "送信先選択");
+                return;
+            }
+
+            // 進捗報告メールの件名に使用するユーザーの姓を取得
+            var userLastName = UserService.GetUserLastName(UserId);
+
+            // 進捗報告メールの本文を作成
+            var textBody = CreateTextBody();
+            if (string.IsNullOrEmpty(textBody))
+            {
+                Logger.LogWarning("No text to send.");
+                // await CloseModal();
+                return;
+            }
+
+            // 進捗報告メールを送信
+            await MailService.SendAsync(
+                sendToAddresses,
+                $"進捗報告（{userLastName} {Date:yyyy/MM/dd}）",
+                textBody);
+            Logger.LogInformation("Progress email sent successfully.");
+
+            await ModalService.ShowAsync(
+               "進捗報告メールを送信しました。",
+               "進捗報告メール送信完了");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to send progress email.");
+        }
+        // await CloseModal();
+    }
+
+    /// <summary>
+    /// 進捗報告メールの本文を作成する
+    /// </summary>
+    /// <returns>メール本文</returns>
+    private string CreateTextBody()
+    {
+        if (tactuals is null || !tactuals.Any())
+        {
+            return string.Empty;
+        }
+        var text = $"""
+担当者：{UserName}
+日付：{Date:yyyy/MM/dd}
+{string.Join(Environment.NewLine, tactuals.Select(t => $"""
+プロジェクト名 工程名：{t.ProjectName}  {t.PhaseName}
+作業内容：{t.Description}
+作業時刻：{t.StartDate:HH:mm} ～ {t.EndDate:HH:mm}
+作業工数：{t.ManHour} H
+進捗率：{t.ProgressRate?.ToString("0.# %;0.# %;")}
+備考：{t.Remarks}
+"""))}
+作業工数計：{tactuals?.Sum(t => t.ManHour)} H
+""";
+        return text;
     }
 }

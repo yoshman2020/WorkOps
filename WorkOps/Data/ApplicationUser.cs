@@ -35,14 +35,19 @@ namespace WorkOps.Data
         public bool IsPrevReminderEnabled { get; set; } = false;
 
         /// <summary>
-        /// 出退勤提出時にメール送信する
+        /// 出退勤提出時にメール受信する
         /// </summary>
         public bool IsSendAttendanceEmail { get; set; } = false;
 
         /// <summary>
-        /// 週間報告書提出時にメール送信する
+        /// 週間報告書提出時にメール受信する
         /// </summary>
         public bool IsSendReportEmail { get; set; } = false;
+
+        /// <summary>
+        /// 進捗報告時にメール受信する
+        /// </summary>
+        public bool IsSendProgressEmail { get; set; } = false;
     }
 
 }

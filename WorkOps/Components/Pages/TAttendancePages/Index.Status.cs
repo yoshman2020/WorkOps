@@ -237,7 +237,7 @@ public partial class Index
 
         // メール送信
         var users = await UserService.GetUsersAsync();
-        // 出退勤提出時にメール送信するユーザー、または自分自身に送信する
+        // 出退勤提出時にメール受信するユーザー、または自分自身に送信する
         var sendUsers = users.Where(u => u.IsSendAttendanceEmail == true
                 || u.Id == InputModels?.FirstOrDefault()?.UserId)
             .Select(u => u.Email);

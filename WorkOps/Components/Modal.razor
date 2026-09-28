@@ -1,0 +1,228 @@
+﻿@using WorkOps.Models.Results
+@implements IAsyncDisposable
+@inject WorkOps.Services.ModalService ModalService
+@inject ILogger<Modal> Logger
+@inject IJSRuntime JS
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+<div class="modal fade" id="@ModalId" tabindex="-1" aria-hidden="true" aria-labelledby="modalTitle">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">@Title</h5>
+                <button type="button" class="btn-close" aria-label="Close" @onclick="Cancel"></button>
+            </div>
+            <div class="modal-body">
+                @((MarkupString)Message)
+                @if (IsSelect)
+                {
+                    <div class="mt-3">
+                        @foreach (var option in Options)
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       id="@GetOptionId(option)"
+                                       checked="@SelectedOptions.Contains(option)"
+                                       @onchange="e => ToggleOption(option, e.Value)" />
+                                <label class="form-check-label" for="@GetOptionId(option)">@option</label>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                @if (IsConfirm)
+                {
+                    <button type="button" class="btn btn-secondary" @onclick="Cancel">キャンセル</button>
+                }
+                <button type="button" class="btn btn-primary" @onclick="Ok">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    private const string ModalId = "messageModal";
+
+    private string Title { get; set; } = "";
+    private string Message { get; set; } = "";
+    private bool IsConfirm;
+    private bool IsSelect;
+
+    private IReadOnlyList<string> Options { get; set; } = [];
+    private HashSet<string> SelectedOptions { get; set; } = [];
+
+    private TaskCompletionSource<bool>? _confirmTask;
+    private TaskCompletionSource<ModalSelectResult>? _selectTask;
+    private bool _disposed = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ModalService.OnShow += OnShowAsync;
+        ModalService.OnConfirm += OnConfirmAsync;
+        ModalService.OnSelect += OnSelectAsync;
+
+        await base.OnInitializedAsync();
+    }
+
+    /// <summary>
+    /// メッセージを表示
+    /// </summary>
+    public async Task OnShowAsync(string message, string title = "")
+    {
+        if (_disposed) return;
+
+        Title = title;
+        Message = message;
+        IsConfirm = false;
+        IsSelect = false;
+
+        await InvokeAsync(StateHasChanged);
+
+        // JSが読み込まれるまで待機
+        try
+        {
+            await JS.InvokeVoidAsync("bootstrapModal.show", ModalId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, $"Error showing modal: {ex.Message}");
+        }
+    }
+
+
+    /// <summary>
+    /// 確認ダイアログを表示
+    /// </summary>
+    public async Task<bool> OnConfirmAsync(
+        string message,
+        string title = "確認")
+    {
+        Title = title;
+        Message = message;
+        IsConfirm = true;
+        IsSelect = false;
+
+        _confirmTask = new();
+
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            await JS.InvokeVoidAsync("bootstrapModal.show", ModalId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, $"Error showing confirm modal: {ex.Message}");
+        }
+        return await _confirmTask.Task;
+    }
+
+    public async Task<ModalSelectResult> OnSelectAsync(
+        string message,
+        string title = "選択",
+        IReadOnlyList<string>? options = null)
+    {
+        if (_disposed)
+        {
+            return new();
+        }
+
+        Title = title;
+        Message = message;
+        IsConfirm = true;
+        IsSelect = true;
+
+        Options = options ?? [];
+        SelectedOptions = [];
+
+        _selectTask = new();
+
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            await JS.InvokeVoidAsync("bootstrapModal.show", ModalId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error showing modal: {Message}", ex.Message);
+            _selectTask.TrySetResult(new());
+        }
+
+        return await _selectTask.Task;
+    }
+
+    private void ToggleOption(string option, object? value)
+    {
+        if (value is bool isChecked)
+        {
+            if (isChecked)
+            {
+                SelectedOptions.Add(option);
+            }
+            else
+            {
+                SelectedOptions.Remove(option);
+            }
+        }
+    }
+
+    private async Task Ok()
+    {
+        if (IsConfirm)
+        {
+            _confirmTask?.TrySetResult(true);
+        }
+        if (IsSelect)
+        {
+            // 未選択なら何もしない
+            if (SelectedOptions.Count == 0)
+            {
+                return;
+            }
+
+            _selectTask?.TrySetResult(new ModalSelectResult
+            {
+                SelectedOptions = SelectedOptions.ToList()
+            });
+            await Close();
+            return;
+        }
+        await Close();
+    }
+
+    private async Task Cancel()
+    {
+        _confirmTask?.TrySetResult(false);
+        _selectTask?.TrySetResult(new ModalSelectResult
+        {
+            Canceled = true,
+            SelectedOptions = []
+        });
+        await Close();
+    }
+
+    private async Task Close()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("bootstrapModal.hide", ModalId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, $"Error hiding modal: {ex.Message}");
+        }
+    }
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        _disposed = true;
+        ModalService.OnShow -= OnShowAsync;
+        ModalService.OnConfirm -= OnConfirmAsync;
+        ModalService.OnSelect -= OnSelectAsync;
+        await ValueTask.CompletedTask;
+    }
+
+    private string GetOptionId(string option) => $"option_{option.GetHashCode()}";
+}

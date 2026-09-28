@@ -78,6 +78,19 @@ public class MailService(IConfiguration config, ILogger<MailService> logger)
     }
 
     /// <summary>
+    /// メール送信
+    /// </summary>
+    /// <param name="to">送信先メールアドレス</param>
+    /// <param name="subject">件名</param>
+    /// <param name="textBody">本文</param>
+    /// <throws="InvalidOperationException">SMTPの設定が行われていない場合</exception>
+    public async Task SendAsync(IEnumerable<string> to,
+        string subject, string textBody)
+    {
+        await SendWithAttachmentAsync(to, subject, textBody, []);
+    }
+
+    /// <summary>
     /// Content-Typeをファイル名から推測して返す
     /// </summary>
     /// <param name="fileName">ファイル名</param>
