@@ -75,9 +75,9 @@
     private string UserName = string.Empty;
 
     /// <summary>
-    /// 進捗報告送信先のメールアドレスリスト（メールアドレス => チェック状態）
+    /// 進捗報告送信先のメールアドレスリスト
     /// </summary>
-    private Dictionary<string, bool> ProgressEMailAddresses = [];
+    private List<string> ProgressEMailAddresses = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -119,7 +119,7 @@
             ProgressEMailAddresses = DbContext.Users
                 .Where(u => u.IsSendProgressEmail)
                 .Select(u => u.Email ?? string.Empty)
-                .ToDictionary(email => email, email => false);
+                .ToList();
         }
         catch (Exception ex)
         {
@@ -145,7 +145,7 @@
         var result = await ModalService.SelectAsync(
             "進捗報告を送信するメールアドレスを選択してください。",
             "送信先選択",
-            ProgressEMailAddresses.Keys.ToList());
+            ProgressEMailAddresses);
 
         if (result.Canceled || result.SelectedOptions.Count == 0)
         {
@@ -153,7 +153,15 @@
             return;
         }
 
-        await SendProgressEMail(result.SelectedOptions);
+        // 送信先に自身を追加
+        var userEmail = DbContext.Users
+            .Where(u => u.Id == UserId)
+            .Select(u => u.Email)
+            .FirstOrDefault();
+        var sendToAddresses = result.SelectedOptions.ToList();
+        sendToAddresses.Add(userEmail ?? string.Empty);
+
+        await SendProgressEMail(sendToAddresses);
     }
 
     /// <summary>
