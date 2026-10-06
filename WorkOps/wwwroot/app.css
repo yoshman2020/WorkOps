@@ -84,3 +84,16 @@ h1:focus {
 .link-hover-primary:hover {
     color: #0d6efd !important;
 }
+
+/* ïùÇÃã∑Ç¢óÒ */
+.quickgrid-th-narrow, .quickgrid-th-narrow div, .quickgrid-th-narrow button {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    text-align: center !important;
+}
+.quickgrid-th-narrow .sort-indicator {
+    width: 0 !important;
+}
+.quickgrid-th-narrow .col-title-text {
+    text-wrap: nowrap;
+}

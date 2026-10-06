@@ -23,15 +23,21 @@
 </p>
 
 <QuickGrid Class="table" Items="InputModels" RowClass="GetRowClass">
-    <DisplayPropertyColumn Property="applicationuser => applicationuser.FullName" />
-    <DisplayPropertyColumn Property="applicationuser => applicationuser.Email" />
-    <DisplayPropertyColumn Property="applicationuser => applicationuser.RoleName" />
-    <DisplayPropertyColumn Property="applicationuser => applicationuser.WorkTimeString" />
+    <DisplayPropertyColumn Property="applicationuser => applicationuser.FullName" Class="text-nowrap" />
+    <DisplayPropertyColumn Property="applicationuser => applicationuser.Email" Class="text-nowrap" />
+    <DisplayPropertyColumn Property="applicationuser => applicationuser.RoleName" Class="text-nowrap" />
+    <DisplayPropertyColumn Property="applicationuser => applicationuser.WorkTimeString" Class="text-nowrap" />
     <TemplateColumn Context="applicationuser" Class="text-nowrap">
         <a href="@($"applicationusers/edit?id={applicationuser.Id}")">編集</a> |
         <a href="@($"applicationusers/details?id={applicationuser.Id}")">詳細</a> |
         <a href="@($"applicationusers/delete?id={applicationuser.Id}")">削除</a>
     </TemplateColumn>
+    <DisplayPropertyColumn Property="applicationuser => applicationuser.IsPrevReminderEnabled" Class="quickgrid-th-narrow" />
+    <DisplayPropertyColumn Property="applicationuser => applicationuser.IsSendAttendanceEmail" Class="quickgrid-th-narrow" />
+    <DisplayPropertyColumn Property="applicationuser => applicationuser.IsSendReportEmail" Class="quickgrid-th-narrow" />
+    <DisplayPropertyColumn Property="applicationuser => applicationuser.IsSendProgressEmail" Class="quickgrid-th-narrow" />
+    <DisplayPropertyColumn Property="applicationuser => applicationuser.PaidLeaveDays" Class="quickgrid-th-narrow" />
+    <DisplayPropertyColumn Property="applicationuser => applicationuser.IsDeleted" />
 </QuickGrid>
 
 @code {
@@ -72,6 +78,10 @@
                 inputModel.WorkTimeString = workTime != null
                     ? $"{workTime.StartTime} - {workTime.EndTime}"
                     : "";
+                var paidLeaveDays = await DbContext.TPaidLeave
+                    .Where(e => e.UserId == user.Id)
+                    .SumAsync(e => e.GrantedDays);
+                inputModel.PaidLeaveDays = paidLeaveDays;
                 inputModels.Add(inputModel);
             }
             InputModels = inputModels.AsQueryable();

@@ -105,4 +105,10 @@ public class InputModel
     /// 有給休暇
     /// </summary>
     public List<InputPaidLeaveModel> PaidLeaves { get; set; } = [];
+
+    /// <summary>
+    /// 有給休暇日数
+    /// </summary>
+    [Display(Name = "有給休暇日数")]
+    public int PaidLeaveDays { get; set; }
 }
