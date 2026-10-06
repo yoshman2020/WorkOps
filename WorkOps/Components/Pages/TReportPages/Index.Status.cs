@@ -2,6 +2,7 @@
 using WorkOps.Extensions;
 using WorkOps.Models;
 using WorkOps.Models.Enums;
+using WorkOps.Services;
 
 namespace WorkOps.Components.Pages.TReportPages;
 
@@ -10,6 +11,42 @@ namespace WorkOps.Components.Pages.TReportPages;
 /// </summary>
 public partial class Index
 {
+    /// <summary>
+    /// モーダルを開く
+    /// </summary>
+    /// <returns>週間報告書送信先メールアドレスのリスト</returns>
+    private async Task<List<string>> OpenModal()
+    {
+        if (ReportEMailAddresses.Count == 0)
+        {
+            await ModalService.ShowAsync(
+                "週間報告送信先のメールアドレスが設定されていません。",
+                "送信先選択");
+            return [];
+        }
+
+        var result = await ModalService.SelectAsync(
+            "週間報告を送信するメールアドレスを選択してください。",
+            "送信先選択",
+            ReportEMailAddresses);
+
+        if (result.Canceled || result.SelectedOptions.Count == 0)
+        {
+            // ユーザーがキャンセルした場合や、選択がない場合は何もしない
+            return [];
+        }
+
+        // 送信先に自身を追加
+        var userEmail = DbContext.Users
+            .Where(u => u.Id == UserId)
+            .Select(u => u.Email)
+            .FirstOrDefault();
+        var sendToAddresses = result.SelectedOptions.ToList();
+        sendToAddresses.Add(userEmail ?? string.Empty);
+
+        return sendToAddresses;
+    }
+
     /// <summary>
     /// 承認ステータスを更新する
     /// </summary>
@@ -75,10 +112,18 @@ public partial class Index
     /// メール送信
     /// </summary>
     /// <param name="status">ステータス</param>
+    /// <param name="sendToAddresses">送信先メールアドレスのリスト</param>
     /// <returns></returns>
     /// <throws="InvalidOperationException">SMTPの設定が行われていない場合</exception>
-    private async Task SendEmailAsync(ApprovalStatus status)
+    private async Task SendEmailAsync(
+        ApprovalStatus status, List<string> sendToAddresses)
     {
+        if (sendToAddresses is null || sendToAddresses.Count == 0)
+        {
+            // 送信先がない場合はメール送信しない
+            return;
+        }
+
         if (!(DbContext.MSystemSettings.FirstOrDefault()?
             .IsSendSubmittedStatusMail ?? false))
         {
@@ -118,17 +163,7 @@ public partial class Index
         }
 
         // メール送信
-        var users = await UserService.GetUsersAsync();
-        // 週間報告書提出時にメール受信するユーザー、または自分自身に送信する
-        var sendUsers = users.Where(u => u.IsSendReportEmail == true
-                || u.Id == InputModels?.FirstOrDefault()?.UserId)
-            .Select(u => u.Email);
-        if (sendUsers is null || !sendUsers.Any())
-        {
-            // メール送信対象がいない場合はメール送信しない
-            return;
-        }
-        await MailService.SendWithAttachmentAsync(sendUsers!,
+        await MailService.SendWithAttachmentAsync(sendToAddresses,
             $"週間報告書（{userLastName} {Month:yyyy/MM/dd}）", "週間報告書送付",
             [
                 (wordMs.ToArray(),
@@ -136,5 +171,7 @@ public partial class Index
                 (excelMs.ToArray(),
                     $"{userLastName}スケジュール.xlsx")
             ]);
+
+        await ModalService.ShowAsync("週間報告書を送信しました。", "送信完了");
     }
 }

@@ -99,6 +99,11 @@ public partial class Index
     private Dictionary<DateOnly, MHoliday> holidays = [];
 
     /// <summary>
+    /// 出退勤送信先のメールアドレスリスト
+    /// </summary>
+    private List<string> AttendanceEMailAddresses = [];
+
+    /// <summary>
     /// 初期化
     /// </summary>
     /// <returns></returns>
@@ -118,6 +123,11 @@ public partial class Index
 
             // 前日・先週の未入力通知
             notifications = await LoadNotificationsAsync();
+
+            // 出退勤送信先のメールアドレスリストを取得
+            AttendanceEMailAddresses = [.. DbContext.Users
+                .Where(u => u.IsSendAttendanceEmail)
+                .Select(u => u.Email ?? string.Empty)];
         }
         catch (Exception ex)
         {
@@ -176,11 +186,26 @@ public partial class Index
                 return;
             }
 
+            List<string> sendToAddresses = [];
+            // メール送信設定が有効で、提出済の場合、送信先を確認
+            if ((DbContext.MSystemSettings
+                    .FirstOrDefault()?.IsSendSubmittedStatusMail ?? false)
+                && status == ApprovalStatus.SubmittedPendingManager)
+            {
+                sendToAddresses = await OpenModal();
+
+                // ユーザーがキャンセルした場合や、選択がない場合は何もしない
+                if (sendToAddresses == null || sendToAddresses.Count == 0)
+                {
+                    return;
+                }
+            }
+
             // ステータス更新
             currentStatus = await UpdateStatusAsync(status);
 
             // メール送信
-            await SendEmailAsync(status);
+            await SendEmailAsync(status, sendToAddresses);
 
             // 再読込
             await LoadSelectedDataAsync();

@@ -15,6 +15,7 @@
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
 @inject WorkOps.Services.MailService MailService
+@inject WorkOps.Services.ModalService ModalService
 @inject IOptions<AppSettings> AppSettings
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -141,6 +142,11 @@
         ApprovalStatus.ReviewedPendingApproval
     ];
 
+    /// <summary>
+    /// 週間報告送信先のメールアドレスリスト
+    /// </summary>
+    private List<string> ReportEMailAddresses = [];
+
     protected override async Task OnInitializedAsync()
     {
         Logger.LogDebug("▽OnInitializedAsync");
@@ -156,6 +162,11 @@
             }
 
             await LoadSelectedDataAsync();
+
+            // 週間報告送信先のメールアドレスリストを取得
+            ReportEMailAddresses = [.. DbContext.Users
+                .Where(u => u.IsSendReportEmail)
+                .Select(u => u.Email ?? string.Empty)];
         }
         catch (Exception ex)
         {
@@ -173,11 +184,26 @@
         Logger.LogDebug("▽OnStepClick");
         try
         {
+            List<string> sendToAddresses = [];
+            // メール送信設定が有効で、提出済の場合、送信先を確認
+            if ((DbContext.MSystemSettings
+                    .FirstOrDefault()?.IsSendSubmittedStatusMail ?? false)
+                && status == ApprovalStatus.SubmittedPendingManager)
+            {
+                sendToAddresses = await OpenModal();
+
+                // ユーザーがキャンセルした場合や、選択がない場合は何もしない
+                if (sendToAddresses == null || sendToAddresses.Count == 0)
+                {
+                    return;
+                }
+            }
+
             // ステータス更新
             await UpdateStatusAsync(status, reportId);
 
             // メール送信
-            await SendEmailAsync(status);
+            await SendEmailAsync(status, sendToAddresses);
         }
         catch (Exception ex)
         {
