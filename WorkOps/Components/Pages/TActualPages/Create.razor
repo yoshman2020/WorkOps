@@ -1,13 +1,16 @@
 ﻿@page "/tactuals/create"
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.Extensions.Options
 @using WorkOps.Models
 @using WorkOps.Models.Errors
+@using WorkOps.Services
 @inject WorkOps.Data.ApplicationDbContext DbContext
 @inject WorkOps.Services.InputModelService InputModelService
 @inject WorkOps.Services.UserService UserService
 @inject WorkOps.Services.NavigationService NavigationService
 @inject WorkOps.Services.BusinessDayService BusinessDayService
+@inject IOptions<AppSettings> AppSettings
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ILogger<Create> Logger
@@ -352,6 +355,11 @@
 
             if (ErrorCode == WorkOps.Models.Errors.ErrorCode.None)
             {
+                // 出退勤レコードが存在しない場合、新規作成
+                AttendanceRepository attendanceRepository
+                    = new(DbContext, AppSettings);
+                await attendanceRepository.UpsertAsync(UserId, false);
+
                 NavigationService.NavigateToBack(From, "tactualid", $"{TActual.Id}",
                         $"tplanactuals?userid={UserId}");
             }
